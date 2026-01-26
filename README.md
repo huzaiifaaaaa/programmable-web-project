@@ -1,5 +1,5 @@
 # PWP SPRING 2026
-# PROJECT NAME
+# PROJECT NAME: ProBot
 # Group information
 * Student 1. Muhammad Huzaifa (Muhammad.Huzaifa@student.oulu.fi)
 * Student 2. Syed Safiullah Shah (Safi.Shah@student.oulu.fi	)
