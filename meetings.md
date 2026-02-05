@@ -1,16 +1,16 @@
 # Meetings minutes
 
 ## Meeting 1.
-* **DATE:**
+* **DATE:** February 5th
 * **PARTICIPANTS:**
+  - Muhammad Huzaifa
 * **TEACHER:**
+  - Mika Oja
 
 ### Action points
-*List here the actions points discussed with assistants*
+1. Clear the difference between stateless and statefull -Rest APIs are stateless.
 
 ### Notes
-*Add here notes that you consider important. This is not mandatory*
-
 
 ## Meeting 2.
 * **DATE:**
