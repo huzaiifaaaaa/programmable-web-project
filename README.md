@@ -2,7 +2,8 @@
 # PROJECT NAME: ProBot
 # Group information
 * Student 1. Muhammad Huzaifa (Muhammad.Huzaifa@student.oulu.fi)
-* Student 2. Safi Shah (Safi.Shah@student.oulu.fi	)
+* Student 2. Safi Shah (Safi.Shah@student.oulu.fi)
+* Student 3. Zhenfei Sun (Zhenfei.Sun@student.oulu.fi)
 
 ---
 
