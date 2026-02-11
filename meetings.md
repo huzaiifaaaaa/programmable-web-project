@@ -13,12 +13,17 @@
 ### Notes
 
 ## Meeting 2.
-* **DATE:**
+* **DATE:** February 11th
 * **PARTICIPANTS:**
+  - Muhammad Huzaifa
+  - Zhenfei Sun
 * **TEACHER:**
+  - Ivan Sanchez Milara
 
 ### Action points
-*List here the actions points discussed with assistants*
+1. Remove default from conversation_key/chat_key/user_key 
+2. Add guid to model key/dafault.
+3. Back ref/relation to the object!
 
 ### Notes
 *Add here notes that you consider important. This is not mandatory*
