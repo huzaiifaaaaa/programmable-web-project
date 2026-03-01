@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 
 db = SQLAlchemy()
@@ -20,14 +20,14 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     chats = db.relationship("Chat", backref="owner", lazy=True)
 
 class Model(db.Model):
     __tablename__ = 'models'
     model_id = db.Column(db.Integer, primary_key=True)
     model_key = db.Column(db.String(50), unique=True, nullable=False)
-    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    added_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     is_active = db.Column(db.Boolean, default=True)
     conversations = db.relationship("Conversation", backref="model_info", lazy=True)
 
@@ -36,8 +36,8 @@ class Chat(db.Model):
     chat_id = db.Column(db.Integer, primary_key=True)
     chat_key = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     exchanges = db.relationship("Conversation", backref="parent_chat", lazy=True)
 
 class Conversation(db.Model):
@@ -48,4 +48,4 @@ class Conversation(db.Model):
     model_id = db.Column(db.Integer, db.ForeignKey('models.model_id'), nullable=False)
     request = db.Column(db.Text, nullable=False)
     response = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
