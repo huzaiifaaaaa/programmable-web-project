@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from google import genai
 
 from models import db, User, Chat, Conversation, Model
-from auth_required import auth_required
+from auth_utils import auth_required
 
 llm_bp = Blueprint("llm", __name__)
 
@@ -102,7 +102,10 @@ def list_user_chats(user_key: str, claims=None):
         return jsonify({"error": "user not found"}), 404
 
     chats = Chat.query.filter_by(user_id=user.user_id).order_by(Chat.updated_at.desc()).all()
-    return jsonify({"chats": [chat_to_dict(chat) for chat in chats], "count": len(chats)}), 200
+    return jsonify({
+        "chats": [chat_to_dict(chat) for chat in chats],
+        "count": len(chats)
+    }), 200
 
 # POST /api/v1/chats/<chat_key>/messages/
 @llm_bp.route("/chats/<string:chat_key>/messages/", methods=["POST"])
@@ -130,7 +133,12 @@ def send_message(chat_key: str, claims=None):
     if llm_error:
         return jsonify({"error": f"llm_error: {llm_error}"}), 502
 
-    conv = Conversation(chat_id=chat.chat_id, model_id=model.model_id, request=message, response=llm_response)
+    conv = Conversation(
+        chat_id=chat.chat_id,
+        model_id=model.model_id,
+        request=message,
+        response=llm_response
+    )
     chat.updated_at = datetime.now(UTC)
     db.session.add(conv)
     try:
@@ -152,7 +160,10 @@ def get_message_history(chat_key: str, claims=None):
         return jsonify({"error": "forbidden"}), 403
 
     convs = Conversation.query.filter_by(chat_id=chat.chat_id).order_by(Conversation.created_at.asc()).all()
-    return jsonify({"chat": chat_to_dict(chat), "messages": [conversation_to_dict(c) for c in convs]}), 200
+    return jsonify({
+        "chat": chat_to_dict(chat),
+        "messages": [conversation_to_dict(c) for c in convs]
+    }), 200
 
 # DELETE /api/v1/chats/<chat_key>/
 @llm_bp.route("/chats/<string:chat_key>/", methods=["DELETE"])
@@ -169,6 +180,6 @@ def delete_chat(chat_key: str, claims=None):
     try:
         db.session.commit()
         return jsonify({"status": "deleted"}), 200
-    except SQLAlchemyError:  # Specific exception instead of general Exception
+    except SQLAlchemyError:
         db.session.rollback()
         return jsonify({"error": "failed to delete chat"}), 500
