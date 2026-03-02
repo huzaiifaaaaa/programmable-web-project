@@ -11,3 +11,4 @@ Werkzeug==3.1.5
 pyjwt
 pytest
 google-genai
+pylint

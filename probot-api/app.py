@@ -1,3 +1,6 @@
+"""
+ProBot Application Factory.
+"""
 import os
 from flask import Flask
 from models import db

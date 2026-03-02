@@ -1,3 +1,6 @@
+"""
+ProBot DB seed user roles.
+"""
 from app import create_app
 from models import db, UserRole
 

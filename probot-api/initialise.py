@@ -1,3 +1,6 @@
+"""
+ProBot DB initialisation.
+"""
 import os
 from flask import Flask
 from models import db, UserRole, Model, User

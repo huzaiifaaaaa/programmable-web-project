@@ -1,3 +1,6 @@
+"""
+ProBot Authentication utils.
+"""
 import time
 import jwt
 from functools import wraps
