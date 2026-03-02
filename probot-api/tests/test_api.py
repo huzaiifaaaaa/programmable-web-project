@@ -165,7 +165,11 @@ def test_update_user_success_name_and_password(client):
 
 
 def test_user_profile_etag_and_cache_headers(client):
-    # signup + login
+    """
+    Test Case: Test Caching (ETag Headers)
+    Goal: Verify that if no content changed will use cached.
+    Expected: Status 200 OK if first GET, status 304 Not Modified if no changes were made before last GET.
+    """
     r_signup = _signup(client)
     assert r_signup.status_code == 201, r_signup.get_json()
     user_key = r_signup.get_json()["user"]["user_key"]
@@ -197,6 +201,11 @@ def test_user_profile_etag_and_cache_headers(client):
 
 
 def test_etag_changes_after_update_and_old_etag_no_longer_valid(client):
+    """
+    Test Case: Test Caching if updated resources
+    Goal: Verify that if content changed will return new data.
+    Expected: Status 200 OK if content changed after last GET.
+    """
     # signup + login
     r_signup = _signup(client)
     user_key = r_signup.get_json()["user"]["user_key"]
