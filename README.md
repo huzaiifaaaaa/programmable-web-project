@@ -1,87 +1,128 @@
-# PWP SPRING 2026
-# PROJECT NAME: ProBot
-# Group information
-* Student 1. Muhammad Huzaifa (Muhammad.Huzaifa@student.oulu.fi)
-* Student 2. Safi Shah (Safi.Shah@student.oulu.fi)
-* Student 3. Zhenfei Sun (Zhenfei.Sun@student.oulu.fi)
+
+# ProBot API
+
+**PWP SPRING 2026**
+
+### Group Information
+
+* **Student 1:** Muhammad Huzaifa (Muhammad.Huzaifa@student.oulu.fi)
+* **Student 2:** Safi Shah (Safi.Shah@student.oulu.fi)
+* **Student 3:** Zhenfei Sun (Zhenfei.Sun@student.oulu.fi)
 
 ---
 
-# Deliverable 2 - Database Implementation
+## 1. Project Structure
 
-## 1. Directory Structure
-```
+The project follows a modular structure to ensure maintainability and high code quality.
+
+```text
 probot-api/
-├── app.py # Contains the Flask app
-├── models.py # Contains all 5 data models
-├── initialise.py # Seeds the database, inserts default values
-├── requirements.txt # Generated via pip freeze
-├── instance/pro_bot_stage.db # SQLite database generated after running the app
+├── app.py              # Application factory and entry point
+├── auth_utils.py       # JWT logic and @auth_required decorator
+├── initialise.py       # Default data insertion (Models & Admin)
+├── models.py           # SQLAlchemy Database Models
+├── user_routes.py      # REST Resources and Route handlers for user endpoints
+├── llm_routes.py      # REST Resources and Route handlers for llm endpoints
+├── seed_roles.py       # Script for initial UserRole population
+├── requirements.txt    # External library dependencies
+└── tests/
+    ├── conftest.py     # Pytest fixtures and DB setup
+    └── test_api.py     # API functional test suite
+
 ```
 
-## 2. Project Dependencies
+---
 
-This project requires **Python 3.x** and the following external libraries:
+## 2. Setup & Execution
 
-- **Flask** – Web framework for the API  
-- **Flask-SQLAlchemy** – ORM for database interactions  
+### 2.1 Dependencies
 
-### Installation
+This project requires **Python 3.12+**.
 
-Install dependencies using:
+* **Flask / Flask-SQLAlchemy**: Core web framework and ORM.
+* **PyJWT / Werkzeug**: Security, JWT authentication, and password hashing.
+* **PyTest / Coverage**: Functional testing and reporting.
+* **Flask-SQLAlchemy**: ORM for SQLite.
+* **Werkzeug**: Security and password hashing.
 
+### 2.2 Installation & Database Setup
+
+1. **Environment**:
 ```bash
+python -m venv venv
+source venv/bin/activate  # Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 3. Database Specification
+- Copy `.env.example` to `.env` and fill values.
+- `APP_ENV` (default `stage`) selects DB file name.
+- `JWT_SECRET` secret for signing JWTs.
+- `JWT_EXPIRE_SECONDS` token lifetime in seconds.
+- `GEMINI_API_KEY` required for LLM responses (get one at https://aistudio.google.com/api-keys).
+- `GEMINI_MODEL` default LLM model key (e.g., `gemini-3-flash-preview`).
 
-- Database Engine: SQLite 3
-
-- ORM: SQLAlchemy (via Flask-SQLAlchemy)
-
-- SQLite Version: SQLite 3.x (bundled with Python)
-
-## 4. Setup and Configuration
-
-- Virtual Environment
-```
-python -m venv venv
-
-# Windows
-.\venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-```
-
-- Environment Variable    
-The application uses the APP_ENV environment variable to determine the database name:
-```
-stage → pro_bot_stage.db
-production → pro_bot_production.db
-```
-
-### If not set, the default environment is stage.
-
-## 5. Database Setup and Population
-The database is self provisioning. No manual SQL scripts are required.
-
-### Automatic Creation
-- When the application starts, it checks for the existence of the .db file.
-- If the file does not exist, db.create_all() is executed to create all tables.
-
-### Automatic Seeding
-- The insert_data() function in app.py automatically inserts default records.
-
-### Running the Application
+2. **Configuration**: Copy `.env.example` to `.env` and configure `JWT_SECRET` and `GEMINI_API_KEY`.
+3. **Database**: The API is self-provisioning. To manually seed roles:
+```bash
+python seed_roles.py
 
 ```
+
+
+4. **Run**:
+```bash
 python app.py
+
 ```
 
-### Generating requirements.txt
+* **Local Entry Point**: `http://127.0.0.1:5000/api/v1/`
+* **Remote Access URL**: `https://[YOUR-DEPLOYED-URL]/api/v1/`
+
+
+5. **Testing & Coverage**
+
+```bash
+# Run tests with coverage
+coverage run -m pytest tests/test_api.py
+
+# Generate report for screen share
+coverage report -m
+
 ```
-pip install flask flask-sqlalchemy
-pip freeze > requirements.txt
-```
+---
+
+## 3. Sample Requests
+
+- Signup `POST /api/v1/signup/`
+	```json
+	{"name": "Alice", "email": "alice@example.com", "password": "secret123"}
+	```
+- Login `POST /api/v1/login/`
+	```json
+	{"email": "alice@example.com", "password": "secret123"}
+	```
+- Create chat `POST /api/v1/chats/` (Auth: Bearer <token>)
+	```json
+	{}
+	```
+- List user chats `GET /api/v1/users/<user_key>/chats/` (Auth)
+	- No body
+- Send message `POST /api/v1/chats/<chat_key>/messages/` (Auth)
+	```json
+	{
+		"message": "Explain Gemini briefly",
+		"model_key": "gemini-3-flash-preview"  // optional; defaults to GEMINI_MODEL
+	}
+	```
+- Get chat history `GET /api/v1/chats/<chat_key>/messages/` (Auth)
+	- No body
+- Delete chat `DELETE /api/v1/chats/<chat_key>/` (Auth)
+	- No body
+---
+
+## 4. AI Disclosure
+
+* **Tool**: Gemini 1.5 Flash.
+* **Usage**: Used for structuring this README, generating resource tables, and functional test headers.
+
+---

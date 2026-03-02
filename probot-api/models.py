@@ -1,17 +1,23 @@
-from flask_sqlalchemy import SQLAlchemy
+"""
+ProBot DB models.
+This module defines the SQLAlchemy schema for users, roles, chats, and conversations.
+"""
 from datetime import datetime, UTC
 import uuid
+from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-class UserRole(db.Model):
+class UserRole(db.Model):  # pylint: disable=too-few-public-methods
+    """Model representing user roles (e.g., user, admin)."""
     __tablename__ = 'user_role'
     role_id = db.Column(db.Integer, primary_key=True)
     role_name = db.Column(db.String(50), nullable=False)
     description = db.Column(db.String(255))
     users = db.relationship("User", backref="role_info", lazy=True)
 
-class User(db.Model):
+class User(db.Model):  # pylint: disable=too-few-public-methods
+    """Model representing a registered user."""
     __tablename__ = 'users'
     user_id = db.Column(db.Integer, primary_key=True)
     user_key = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), unique=True)
@@ -24,7 +30,8 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     chats = db.relationship("Chat", backref="owner", lazy=True)
 
-class Model(db.Model):
+class Model(db.Model):  # pylint: disable=too-few-public-methods
+    """Model representing different AI LLM engines."""
     __tablename__ = 'models'
     model_id = db.Column(db.Integer, primary_key=True)
     model_key = db.Column(db.String(50), unique=True, nullable=False)
@@ -32,16 +39,22 @@ class Model(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     conversations = db.relationship("Conversation", backref="model_info", lazy=True)
 
-class Chat(db.Model):
+class Chat(db.Model):  # pylint: disable=too-few-public-methods
+    """Model representing a chat thread session."""
     __tablename__ = 'chats'
     chat_id = db.Column(db.Integer, primary_key=True)
     chat_key = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    updated_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+    )
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
-    exchanges = db.relationship("Conversation", backref="parent_chat", lazy=True)
+    exchanges = db.relationship(
+        "Conversation", backref="parent_chat", lazy=True, cascade="all, delete-orphan"
+    )
 
-class Conversation(db.Model):
+class Conversation(db.Model):  # pylint: disable=too-few-public-methods
+    """Model representing a single request-response exchange within a chat."""
     __tablename__ = 'conversation'
     conversation_id = db.Column(db.Integer, primary_key=True)
     conversation_key = db.Column(db.String(36), default=lambda: str(uuid.uuid4()), unique=True)
