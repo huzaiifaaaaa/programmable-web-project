@@ -21,7 +21,8 @@ probot-api/
 ├── auth_utils.py       # JWT logic and @auth_required decorator
 ├── initialise.py       # Default data insertion (Models & Admin)
 ├── models.py           # SQLAlchemy Database Models
-├── routes.py           # REST Resources and Route handlers
+├── user_routes.py      # REST Resources and Route handlers for user endpoints
+├── llm_routes.py      # REST Resources and Route handlers for llm endpoints
 ├── seed_roles.py       # Script for initial UserRole population
 ├── requirements.txt    # External library dependencies
 └── tests/
