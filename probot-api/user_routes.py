@@ -1,9 +1,7 @@
 """
 ProBot User routes.
 """
-from flask import Blueprint, request, jsonify
 import hashlib
-
 from flask import Blueprint, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError

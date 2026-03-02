@@ -3,7 +3,7 @@ programmable-web-project.wiki/.DS_Store
 /probot-api/__pycache__
 .DS_Store
 .env
-./probot-api/instance/
+./probot-api/instance/*
 
 # ignore .env files but keep the example
 !.env.example
