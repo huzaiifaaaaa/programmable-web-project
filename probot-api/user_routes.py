@@ -150,9 +150,10 @@ def update_user(user_key: str, claims=None):
         return jsonify({"error": "user not found" if not user else "forbidden"}), status
 
     data = get_json()
-    if not data or "user_role" in data:
+    if not data:
         return jsonify({"error": "Invalid request or role modification"}), 400
-
+    if "user_role" in data:
+        return jsonify({"error": "User role cannot be modified"}), 403
     # 2. Consolidate validation logic into one check
     error = None
     if "name" in data and not (data["name"] or "").strip():
