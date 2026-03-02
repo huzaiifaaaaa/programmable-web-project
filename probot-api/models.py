@@ -38,7 +38,7 @@ class Chat(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
-    exchanges = db.relationship("Conversation", backref="parent_chat", lazy=True)
+    exchanges = db.relationship("Conversation", backref="parent_chat", lazy=True, cascade="all, delete-orphan")
 
 class Conversation(db.Model):
     __tablename__ = 'conversation'

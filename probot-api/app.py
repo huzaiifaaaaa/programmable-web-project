@@ -2,7 +2,8 @@ import os
 from flask import Flask
 from models import db
 from initialise import insert_data
-from routes import api_bp
+from user_routes import api_bp as user_bp
+from llm_routes import llm_bp
 
 def create_app():
     app = Flask(__name__)
@@ -11,10 +12,14 @@ def create_app():
     
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_name}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config["JWT_SECRET"] = "CHANGE_ME_TO_RANDOM_LONG_SECRET"
-    app.config["JWT_EXPIRE_SECONDS"] = 3600
+    app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "CHANGE_ME_TO_RANDOM_LONG_SECRET")
+    app.config["JWT_EXPIRE_SECONDS"] = int(os.getenv("JWT_EXPIRE_SECONDS", "3600"))
+    app.config["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY", "")
+    # Default model is driven by .env; change there to switch models
+    app.config["GEMINI_MODEL"] = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
-    app.register_blueprint(api_bp, url_prefix="/api/v1")
+    app.register_blueprint(user_bp, url_prefix="/api/v1")
+    app.register_blueprint(llm_bp, url_prefix="/api/v1")
     
     app.debug = (env == 'stage')
     db.init_app(app)
