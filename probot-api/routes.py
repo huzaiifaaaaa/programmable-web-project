@@ -1,4 +1,6 @@
-from flask import Blueprint, request, jsonify
+import hashlib
+
+from flask import Blueprint, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 
@@ -30,6 +32,10 @@ def get_default_role_or_500():
     if not role:
         return None, (jsonify({"error": f"default role '{DEFAULT_ROLE_NAME}' not found, seed roles first"}), 500)
     return role, None
+
+def make_user_etag(u: User) -> str:
+    base = f"{u.user_key}:{u.updated_at.isoformat() if u.updated_at else ''}"
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()
 
 
 # POST /api/v1/signup/
@@ -101,8 +107,20 @@ def get_user(user_key: str, claims=None):
     u = User.query.filter_by(user_key=user_key).first()
     if not u:
         return jsonify({"error": "user not found"}), 404
-    return jsonify(user_to_dict(u)), 200
 
+    etag = make_user_etag(u)
+    inm = request.headers.get("If-None-Match")
+
+    if inm == etag:
+        resp = make_response("", 304)
+        resp.headers["ETag"] = etag
+        resp.headers["Cache-Control"] = "private, max-age=60"
+        return resp
+
+    resp = jsonify(user_to_dict(u))
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "private, max-age=60"
+    return resp, 200
 
 # PUT /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["PUT"])
