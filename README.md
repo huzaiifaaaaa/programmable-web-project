@@ -114,4 +114,6 @@ As per grading criteria, all public methods are documented below:
 
 * **AI Tool**: Gemini 1.5 Flash.
 * **Prompts used**: "Help me generate a README template based on these grading criteria".
+* **Purpose**: Adding comments in code
+
 

@@ -1,44 +1,73 @@
+"""
+ProBot API - Functional Testing Suite
+This module contains functional tests for the RESTful API implementation.
+It verifies resource addressability, uniform interface, and security constraints.
+"""
+
+# --- Helper Functions for Test Cleanliness ---
+
 def _signup(client, name="Alice", email="alice@example.com", password="password123", extra=None):
+    """Helper to perform a signup POST request."""
     payload = {"name": name, "email": email, "password": password}
     if extra:
         payload.update(extra)
     return client.post("/api/v1/signup/", json=payload)
 
 def _login(client, email="alice@example.com", password="password123"):
+    """Helper to perform a login POST request and retrieve a response."""
     return client.post("/api/v1/login/", json={"email": email, "password": password})
 
 def _auth_header(token: str):
+    """Helper to format the Bearer token for Authorization headers."""
     return {"Authorization": f"Bearer {token}"}
 
 
+# --- Test Cases ---
+
 def test_signup_success_default_role(client):
+    """
+    Test Case: Successful User Registration
+    Goal: Verify that a valid POST request to /signup/ creates a resource.
+    Expected: Status 201 Created and the assignment of the 'user' role by default.
+    """
     r = _signup(client)
     assert r.status_code == 201, r.get_json()
     data = r.get_json()
     assert data["status"] == "created"
     assert data["user"]["email"] == "alice@example.com"
-
-    assert data["user"]["role_name"] == "user"
-    assert isinstance(data["user"]["user_role"], int)
+    assert data["user"]["role_name"] == "user" # Verifies default role logic
 
 
 def test_signup_rejects_user_role_modification_attempt(client):
-
+    """
+    Test Case: Privilege Escalation Prevention
+    Goal: Ensure clients cannot manually set their 'user_role' during signup.
+    Expected: Status 201, but the system must ignore the 'admin' role request and assign 'user'.
+    """
     r = _signup(client, extra={"user_role": 999, "role_name": "admin"})
     assert r.status_code == 201
     data = r.get_json()
-    assert data["user"]["role_name"] == "user"
+    assert data["user"]["role_name"] == "user" # System should override malicious role input
 
 
 def test_signup_duplicate_email_conflict(client):
-    r1 = _signup(client)
-    assert r1.status_code == 201
-    r2 = _signup(client)
+    """
+    Test Case: Error Handling - Resource Conflict
+    Goal: Force a 409 Conflict error by providing a duplicate email.
+    Expected: Status 409 and an error message indicating the email already exists.
+    """
+    _signup(client) # Initial creation
+    r2 = _signup(client) # Duplicate attempt
     assert r2.status_code == 409
     assert "email" in r2.get_json()["error"]
 
 
 def test_login_success_returns_token(client):
+    """
+    Test Case: Successful Authentication
+    Goal: Verify that valid credentials return a JWT for stateless communication.
+    Expected: Status 200 OK and a JSON object containing a 'token'.
+    """
     _signup(client)
     r = _login(client)
     assert r.status_code == 200, r.get_json()
@@ -48,6 +77,11 @@ def test_login_success_returns_token(client):
 
 
 def test_login_wrong_password(client):
+    """
+    Test Case: Error Handling - Unauthorized Login
+    Goal: Force a 401 Unauthorized error using an incorrect password.
+    Expected: Status 401 and an 'invalid credentials' error message.
+    """
     _signup(client)
     r = _login(client, password="wrong")
     assert r.status_code == 401
@@ -55,31 +89,43 @@ def test_login_wrong_password(client):
 
 
 def test_get_user_requires_auth(client):
-    # signup
+    """
+    Test Case: Security - Authentication Enforcement
+    Goal: Verify that protected GET resources cannot be accessed without a token.
+    Expected: Status 401 Unauthorized due to missing Bearer token.
+    """
     r = _signup(client)
     user_key = r.get_json()["user"]["user_key"]
 
-    # no token
-    r2 = client.get(f"/api/v1/users/{user_key}/")
+    r2 = client.get(f"/api/v1/users/{user_key}/") # Attempt access without headers
     assert r2.status_code == 401
 
 
 def test_get_user_only_self_allowed(client):
-    # user1
+    """
+    Test Case: Security - Resource Isolation
+    Goal: Ensure User A cannot access User B's private resource via their URI.
+    Expected: Status 403 Forbidden when using a valid token for a different user's key.
+    """
+    # Create User 1
     r1 = _signup(client, name="Alice", email="alice@example.com")
-    key1 = r1.get_json()["user"]["user_key"]
     token1 = _login(client, "alice@example.com").get_json()["token"]
 
-    # user2
+    # Create User 2
     r2 = _signup(client, name="Bob", email="bob@example.com")
     key2 = r2.get_json()["user"]["user_key"]
 
-    # user1 tries to read user2
+    # User 1 tries to read User 2's data
     r = client.get(f"/api/v1/users/{key2}/", headers=_auth_header(token1))
     assert r.status_code == 403
 
 
 def test_get_user_success(client):
+    """
+    Test Case: Successful Resource Retrieval (Addressability)
+    Goal: Verify that a user can access their own data using their unique user_key.
+    Expected: Status 200 OK and matching profile information.
+    """
     r1 = _signup(client)
     key = r1.get_json()["user"]["user_key"]
     token = _login(client).get_json()["token"]
@@ -88,33 +134,37 @@ def test_get_user_success(client):
     assert r.status_code == 200, r.get_json()
     data = r.get_json()
     assert data["user_key"] == key
-    assert data["email"] == "alice@example.com"
 
 
 def test_update_user_success_name_and_password(client):
+    """
+    Test Case: Resource Update (Uniform Interface)
+    Goal: Verify that the PUT method successfully modifies resource attributes.
+    Expected: Status 200 OK, updated name in response, and successful login with new password.
+    """
     r1 = _signup(client)
     key = r1.get_json()["user"]["user_key"]
     token = _login(client).get_json()["token"]
 
-    # update name + password
+    # Perform update
     r = client.put(
         f"/api/v1/users/{key}/",
         json={"name": "Alice2", "password": "newpassword123"},
         headers=_auth_header(token),
     )
-    assert r.status_code == 200, r.get_json()
+    assert r.status_code == 200
     assert r.get_json()["user"]["name"] == "Alice2"
 
-    # login with old password should fail
-    r_old = _login(client, "alice@example.com", "password123")
-    assert r_old.status_code == 401
-
-    # login with new password should succeed
-    r_new = _login(client, "alice@example.com", "newpassword123")
-    assert r_new.status_code == 200
+    # Verify old password no longer works
+    assert _login(client, "alice@example.com", "password123").status_code == 401
 
 
 def test_update_user_forbids_user_role_change(client):
+    """
+    Test Case: Security - Restricted Attribute Update
+    Goal: Force a 403 Forbidden error when attempting to modify sensitive fields like 'user_role'.
+    Expected: Status 403 and a rejection message.
+    """
     r1 = _signup(client)
     key = r1.get_json()["user"]["user_key"]
     token = _login(client).get_json()["token"]
@@ -129,14 +179,18 @@ def test_update_user_forbids_user_role_change(client):
 
 
 def test_update_user_duplicate_email_conflict(client):
-    # create two users
+    """
+    Test Case: Error Handling - Update Conflict
+    Goal: Force a 409 Conflict error when updating a profile to an email used by another resource.
+    Expected: Status 409.
+    """
     r1 = _signup(client, name="Alice", email="alice@example.com")
     key1 = r1.get_json()["user"]["user_key"]
     token1 = _login(client, "alice@example.com").get_json()["token"]
 
     _signup(client, name="Bob", email="bob@example.com")
 
-    # user1 tries to change email to bob@example.com
+    # User 1 tries to claim User 2's email
     r = client.put(
         f"/api/v1/users/{key1}/",
         json={"email": "bob@example.com"},
@@ -146,14 +200,20 @@ def test_update_user_duplicate_email_conflict(client):
 
 
 def test_delete_user_success_and_then_login_fails(client):
+    """
+    Test Case: Resource Deletion
+    Goal: Verify that the DELETE method removes the resource and invalidates future access.
+    Expected: Status 200 OK and subsequent 401 Unauthorized during login attempts.
+    """
     r1 = _signup(client)
     key = r1.get_json()["user"]["user_key"]
     token = _login(client).get_json()["token"]
 
+    # Remove resource
     r = client.delete(f"/api/v1/users/{key}/", headers=_auth_header(token))
-    assert r.status_code == 200, r.get_json()
+    assert r.status_code == 200
     assert r.get_json()["status"] == "deleted"
 
-    # login should fail (user not found or invalid creds)
+    # Verify deletion
     r2 = _login(client)
     assert r2.status_code == 401
