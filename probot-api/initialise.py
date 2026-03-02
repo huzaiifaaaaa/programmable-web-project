@@ -2,10 +2,10 @@
 ProBot DB initialisation.
 """
 import os
-from flask import Flask
 from models import db, UserRole, Model, User
 
 def insert_data():
+    """Seed database."""
     print(" * Ensuring default database data...")
 
     # Ensure default role

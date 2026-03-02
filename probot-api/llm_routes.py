@@ -113,10 +113,11 @@ def list_user_chats(user_key: str, claims=None):
 def send_message(chat_key: str, claims=None):
     """Send a new message to an existing chat."""
     chat = Chat.query.filter_by(chat_key=chat_key).first()
-    if not chat:
-        return jsonify({"error": "chat not found"}), 404
-    if chat.user_id != claims.get("user_id"):
-        return jsonify({"error": "forbidden"}), 403
+
+    # Consolidate chat existence and ownership check into one block
+    if not chat or chat.user_id != claims.get("user_id"):
+        error_msg = "chat not found" if not chat else "forbidden"
+        return jsonify({"error": error_msg}), (404 if not chat else 403)
 
     data = get_json()
     message = (data.get("message") or "").strip() if data else ""
@@ -143,7 +144,10 @@ def send_message(chat_key: str, claims=None):
     db.session.add(conv)
     try:
         db.session.commit()
-        return jsonify({"status": "message_sent", "conversation": conversation_to_dict(conv)}), 201
+        return jsonify({
+            "status": "message_sent", 
+            "conversation": conversation_to_dict(conv)
+        }), 201
     except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "failed to save conversation"}), 500
@@ -159,7 +163,12 @@ def get_message_history(chat_key: str, claims=None):
     if chat.user_id != claims.get("user_id"):
         return jsonify({"error": "forbidden"}), 403
 
-    convs = Conversation.query.filter_by(chat_id=chat.chat_id).order_by(Conversation.created_at.asc()).all()
+    convs = (
+        Conversation.query
+        .filter_by(chat_id=chat.chat_id)
+        .order_by(Conversation.created_at.asc())
+        .all()
+    )
     return jsonify({
         "chat": chat_to_dict(chat),
         "messages": [conversation_to_dict(c) for c in convs]

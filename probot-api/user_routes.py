@@ -1,5 +1,6 @@
 """
 ProBot User routes.
+Handles registration, authentication, and CRUD operations for user profiles.
 """
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,12 +14,13 @@ api_bp = Blueprint("api", __name__)
 DEFAULT_ROLE_NAME = "user"
 
 def get_json():
+    """Extracts JSON from request body safely."""
     data = request.get_json(silent=True)
     return data if isinstance(data, dict) else None
 
 def user_to_dict(u: User):
+    """Serializes user model to dictionary with HATEOAS links."""
     user_uri = f"/api/v1/users/{u.user_key}/"
-    
     return {
         "user_id": u.user_id,
         "user_key": u.user_key,
@@ -35,15 +37,17 @@ def user_to_dict(u: User):
     }
 
 def get_default_role_or_500():
+    """Fetches default user role or returns a 500 error tuple."""
     role = UserRole.query.filter_by(role_name=DEFAULT_ROLE_NAME).first()
     if not role:
-        return None, (jsonify({"error": f"default role '{DEFAULT_ROLE_NAME}' not found, seed roles first"}), 500)
+        msg = f"default role '{DEFAULT_ROLE_NAME}' not found, seed roles first"
+        return None, (jsonify({"error": msg}), 500)
     return role, None
-
 
 # POST /api/v1/signup/
 @api_bp.route("/signup/", methods=["POST"])
 def signup():
+    """Register a new user account."""
     data = get_json()
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
@@ -76,10 +80,10 @@ def signup():
 
     return jsonify({"status": "created", "user": user_to_dict(u)}), 201
 
-
 # POST /api/v1/login/
 @api_bp.route("/login/", methods=["POST"])
 def login():
+    """Authenticate user and return JWT."""
     data = get_json()
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
@@ -95,15 +99,18 @@ def login():
     if not u.is_active:
         return jsonify({"error": "user is inactive"}), 403
 
-    token = create_jwt({"user_key": u.user_key, "user_id": u.user_id, "role_id": u.user_role})
+    token = create_jwt({
+        "user_key": u.user_key,
+        "user_id": u.user_id,
+        "role_id": u.user_role
+    })
     return jsonify({"token": token, "user": user_to_dict(u)}), 200
-
 
 # GET /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["GET"])
 @auth_required
 def get_user(user_key: str, claims=None):
-
+    """Retrieve public profile for a specific user."""
     if claims.get("user_key") != user_key:
         return jsonify({"error": "forbidden"}), 403
 
@@ -112,56 +119,54 @@ def get_user(user_key: str, claims=None):
         return jsonify({"error": "user not found"}), 404
     return jsonify(user_to_dict(u)), 200
 
-
 # PUT /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["PUT"])
 @auth_required
 def update_user(user_key: str, claims=None):
-    if claims.get("user_key") != user_key:
-        return jsonify({"error": "forbidden"}), 403
-
-    u = User.query.filter_by(user_key=user_key).first()
-    if not u:
-        return jsonify({"error": "user not found"}), 404
+    """Update user profile information."""
+    # 1. Consolidate access and existence checks
+    user = User.query.filter_by(user_key=user_key).first()
+    if not user or claims.get("user_key") != user_key:
+        status = 404 if not user else 403
+        return jsonify({"error": "user not found" if not user else "forbidden"}), status
 
     data = get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if not data or "user_role" in data:
+        return jsonify({"error": "Invalid request or role modification"}), 400
 
-    if "user_role" in data:
-        return jsonify({"error": "user_role cannot be modified"}), 403
+    # 2. Consolidate validation logic into one check
+    error = None
+    if "name" in data and not (data["name"] or "").strip():
+        error = "name cannot be empty"
+    elif "email" in data and not (data["email"] or "").strip():
+        error = "email cannot be empty"
+    elif "password" in data and len(data.get("password", "")) < 6:
+        error = "password too short (>=6)"
 
+    if error:
+        return jsonify({"error": error}), 400
+
+    # Update logic
     if "name" in data:
-        name = (data["name"] or "").strip()
-        if not name:
-            return jsonify({"error": "name cannot be empty"}), 400
-        u.name = name
-
+        user.name = data["name"].strip()
     if "email" in data:
-        email = (data["email"] or "").strip().lower()
-        if not email:
-            return jsonify({"error": "email cannot be empty"}), 400
-        u.email = email
-
+        user.email = data["email"].strip().lower()
     if "password" in data:
-        pwd = data["password"] or ""
-        if len(pwd) < 6:
-            return jsonify({"error": "password too short (>=6)"}), 400
-        u.password = generate_password_hash(pwd)
+        user.password = generate_password_hash(data["password"])
 
+    # 3. Handle database commit
     try:
         db.session.commit()
+        return jsonify({"status": "updated", "user": user_to_dict(user)}), 200
     except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "email already exists"}), 409
-
-    return jsonify({"status": "updated", "user": user_to_dict(u)}), 200
-
 
 # DELETE /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["DELETE"])
 @auth_required
 def delete_user(user_key: str, claims=None):
+    """Remove user account from system."""
     if claims.get("user_key") != user_key:
         return jsonify({"error": "forbidden"}), 403
 

@@ -5,6 +5,7 @@ from app import create_app
 from models import db, UserRole
 
 def seed():
+    """Seed user roles in db."""
     app = create_app()
     with app.app_context():
         roles = [
