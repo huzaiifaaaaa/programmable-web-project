@@ -14,6 +14,8 @@ def get_json():
     return data if isinstance(data, dict) else None
 
 def user_to_dict(u: User):
+    user_uri = f"/api/v1/users/{u.user_key}/"
+    
     return {
         "user_id": u.user_id,
         "user_key": u.user_key,
@@ -23,6 +25,10 @@ def user_to_dict(u: User):
         "email": u.email,
         "is_active": u.is_active,
         "created_at": u.created_at.isoformat() if u.created_at else None,
+        "links": [
+            {"rel": "self", "href": user_uri},
+            {"rel": "chats", "href": f"{user_uri}chats/"}
+        ]
     }
 
 def get_default_role_or_500():
