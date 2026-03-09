@@ -34,6 +34,17 @@
 * **PARTICIPANTS:**
 * **TEACHER:**
 
+1. toml files, should be installable
+2. env file issue
+3. combine the resources....
+4. remove instance/database...
+5. combine routes in a folder...
+6. make app installable.....
+7. add llm tests....
+8. documentation mismatch.... user_routes and llm_routes -> use automated validation!!!!!!!!!!
+9. client side caching,...... implement server side!!!!, accessing from 2 different machines!
+10. 
+
 ### Action points
 *List here the actions points discussed with assistants*
 
