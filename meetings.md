@@ -30,23 +30,24 @@
 
 
 ## Meeting 3.
-* **DATE:**
+* **DATE:** March 9th
 * **PARTICIPANTS:**
+  - Muhammad Huzaifa
+  - Zhenfei Sun
+  - Syed Safiullah Shah
 * **TEACHER:**
-
-1. toml files, should be installable
-2. env file issue
-3. combine the resources....
-4. remove instance/database...
-5. combine routes in a folder...
-6. make app installable.....
-7. add llm tests....
-8. documentation mismatch.... user_routes and llm_routes -> use automated validation!!!!!!!!!!
-9. client side caching,...... implement server side!!!!, accessing from 2 different machines!
-10. 
+  - Mika Oja
 
 ### Action points
-*List here the actions points discussed with assistants*
+1. Make application installable
+2. Remove env files, DB instance, put requirements.txt in correct directory.
+3. Combine the resources in documentation, 
+4. Uniforrm/consistent endpoints.
+5. Combine routes in a folder.
+6. Add LLM test cases -> increase coverage
+7. Implement server side caching!
+8. Implement automated schema valiation
+9. Changes in documentation
 
 ### Notes
 *Add here notes that you consider important. This is not mandatory*
