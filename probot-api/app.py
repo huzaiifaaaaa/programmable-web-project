@@ -8,6 +8,7 @@ from models import db
 from initialise import insert_data
 from user_routes import api_bp as user_bp
 from llm_routes import llm_bp
+from extensions import cache
 
 def create_app():
     """
@@ -26,12 +27,14 @@ def create_app():
     flask_app.config["GEMINI_API_KEY"] = os.getenv("GEMINI_API_KEY", "")
     # Default model is driven by .env; change there to switch models
     flask_app.config["GEMINI_MODEL"] = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
-
+    flask_app.config["CACHE_TYPE"] = "SimpleCache"
+    flask_app.config["CACHE_DEFAULT_TIMEOUT"] = 60
     flask_app.register_blueprint(user_bp, url_prefix="/api/v1")
     flask_app.register_blueprint(llm_bp, url_prefix="/api/v1")
 
     flask_app.debug = env == 'stage'
     db.init_app(flask_app)
+    cache.init_app(flask_app)
 
     with flask_app.app_context():
         db.create_all()

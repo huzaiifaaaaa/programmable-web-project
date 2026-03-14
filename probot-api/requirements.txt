@@ -12,3 +12,4 @@ pyjwt
 pytest
 google-genai
 pylint
+flask-caching

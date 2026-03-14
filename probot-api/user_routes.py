@@ -6,6 +6,7 @@ import hashlib
 from flask import Blueprint, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
+from extensions import cache
 
 from models import db, User, UserRole
 from auth_utils import create_jwt, auth_required
@@ -45,10 +46,29 @@ def get_default_role_or_500():
         return None, (jsonify({"error": msg}), 500)
     return role, None
 
-def make_user_etag(u: User) -> str:
-    base = f"{u.user_key}:{u.updated_at.isoformat() if u.updated_at else ''}"
-    return hashlib.sha256(base.encode("utf-8")).hexdigest()
+def make_user_etag(user_data: dict) -> str:
+    raw = repr(sorted(user_data.items()))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
+def get_user_payload(user_key: str):
+    cache_key = f"user_profile_payload:{user_key}"
+    payload = cache.get(cache_key)
+    if payload is not None:
+        return payload
+
+    u = User.query.filter_by(user_key=user_key).first()
+    if not u:
+        return None
+
+    user_data = user_to_dict(u)
+    etag = make_user_etag(user_data)
+
+    payload = {
+        "user_data": user_data,
+        "etag": etag,
+    }
+    cache.set(cache_key, payload, timeout=60)
+    return payload
 
 # POST /api/v1/signup/
 @api_bp.route("/signup/", methods=["POST"])
@@ -120,12 +140,12 @@ def get_user(user_key: str, claims=None):
     if claims.get("user_key") != user_key:
         return jsonify({"error": "forbidden"}), 403
 
-    u = User.query.filter_by(user_key=user_key).first()
-    if not u:
+    payload = get_user_payload(user_key)
+    if payload is None:
         return jsonify({"error": "user not found"}), 404
 
-    etag = make_user_etag(u)
     inm = request.headers.get("If-None-Match")
+    etag = payload["etag"]
 
     if inm == etag:
         resp = make_response("", 304)
@@ -133,7 +153,7 @@ def get_user(user_key: str, claims=None):
         resp.headers["Cache-Control"] = "private, max-age=60"
         return resp
 
-    resp = jsonify(user_to_dict(u))
+    resp = jsonify(payload["user_data"])
     resp.headers["ETag"] = etag
     resp.headers["Cache-Control"] = "private, max-age=60"
     return resp, 200
@@ -177,6 +197,7 @@ def update_user(user_key: str, claims=None):
     # 3. Handle database commit
     try:
         db.session.commit()
+        cache.delete(f"user_profile_payload:{user_key}")
         return jsonify({"status": "updated", "user": user_to_dict(user)}), 200
     except IntegrityError:
         db.session.rollback()
