@@ -9,3 +9,5 @@ programmable-web-project.wiki/.DS_Store
 !.env.example
 
 *.pyc
+*.db
+probot-api/.env

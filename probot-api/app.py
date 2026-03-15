@@ -6,8 +6,8 @@ import os
 from flask import Flask
 from models import db
 from initialise import insert_data
-from user_routes import api_bp as user_bp
-from llm_routes import llm_bp
+from routes.user_routes import api_bp as user_bp
+from routes.llm_routes import llm_bp
 from extensions import cache
 from flask_smorest import Api
 
