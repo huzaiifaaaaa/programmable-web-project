@@ -9,6 +9,7 @@ from initialise import insert_data
 from user_routes import api_bp as user_bp
 from llm_routes import llm_bp
 from extensions import cache
+from flask_smorest import Api
 
 def create_app():
     """
@@ -29,12 +30,25 @@ def create_app():
     flask_app.config["GEMINI_MODEL"] = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
     flask_app.config["CACHE_TYPE"] = "SimpleCache"
     flask_app.config["CACHE_DEFAULT_TIMEOUT"] = 60
-    flask_app.register_blueprint(user_bp, url_prefix="/api/v1")
-    flask_app.register_blueprint(llm_bp, url_prefix="/api/v1")
+    # flask_app.register_blueprint(user_bp, url_prefix="/api/v1")
+    # flask_app.register_blueprint(llm_bp, url_prefix="/api/v1")
+
+    flask_app.config["API_TITLE"] = "Pro Bot API"
+    flask_app.config["API_VERSION"] = "v1"
+    flask_app.config["OPENAPI_VERSION"] = "3.0.3"
+    flask_app.config["OPENAPI_URL_PREFIX"] = "/"
+    flask_app.config["OPENAPI_JSON_PATH"] = "openapi.json"
+    flask_app.config["OPENAPI_SWAGGER_UI_PATH"] = "/docs"
+    flask_app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
 
     flask_app.debug = env == 'stage'
     db.init_app(flask_app)
     cache.init_app(flask_app)
+
+    api = Api(flask_app)
+
+    api.register_blueprint(user_bp, url_prefix="/api/v1")
+    api.register_blueprint(llm_bp, url_prefix="/api/v1")
 
     with flask_app.app_context():
         db.create_all()

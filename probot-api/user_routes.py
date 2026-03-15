@@ -3,17 +3,65 @@ ProBot User routes.
 Handles registration, authentication, and CRUD operations for user profiles.
 """
 import hashlib
-from flask import Blueprint, request, jsonify, make_response
+from flask import request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 from extensions import cache
+from flask_smorest import Blueprint
+from marshmallow import Schema, fields, validate
 
 from models import db, User, UserRole
 from auth_utils import create_jwt, auth_required
 
-api_bp = Blueprint("api", __name__)
+api_bp = Blueprint(
+    "api",
+    __name__,
+    description="User and auth related APIs"
+)
 
 DEFAULT_ROLE_NAME = "user"
+
+class SignupRequestSchema(Schema):
+    name = fields.Str(required=True)
+    email = fields.Email(required=True)
+    password = fields.Str(required=True)
+
+class LoginRequestSchema(Schema):
+    email = fields.Email(required=True)
+    password = fields.Str(required=True, load_only=True)
+
+class UserOutSchema(Schema):
+    user_key = fields.Int()
+    user_id = fields.Int(allow_none=True)
+    name = fields.Str()
+    email = fields.Email()
+    is_active = fields.Bool()
+
+class SignupSuccessSchema(Schema):
+    status = fields.Str()
+    user = fields.Nested(UserOutSchema)
+
+class LoginSuccessSchema(Schema):
+    token = fields.Str()
+    user = fields.Nested(UserOutSchema)
+
+class ErrorSchema(Schema):
+    error = fields.Str()
+
+class StatusSchema(Schema):
+    status = fields.Str()
+
+class UpdateUserSuccessSchema(Schema):
+    status = fields.Str()
+    user = fields.Nested(UserOutSchema)
+
+class UserPathSchema(Schema):
+    user_key = fields.Str(required=True)
+
+class UpdateUserRequestSchema(Schema):
+    name = fields.Str(required=False)
+    email = fields.Email(required=False)
+    password = fields.Str(required=False, validate=validate.Length(min=6))
 
 def get_json():
     """Extracts JSON from request body safely."""
@@ -72,11 +120,15 @@ def get_user_payload(user_key: str):
 
 # POST /api/v1/signup/
 @api_bp.route("/signup/", methods=["POST"])
-def signup():
+@api_bp.arguments(SignupRequestSchema)
+@api_bp.response(201, SignupSuccessSchema)
+@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
+@api_bp.alt_response(409, schema=ErrorSchema, description="Conflict")
+def signup(data):
     """Register a new user account."""
-    data = get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON"}), 400
+    # data = get_json()
+    # if not data:
+    #     return jsonify({"error": "Invalid JSON"}), 400
 
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -108,11 +160,17 @@ def signup():
 
 # POST /api/v1/login/
 @api_bp.route("/login/", methods=["POST"])
-def login():
+@api_bp.route("/login/", methods=["POST"])
+@api_bp.arguments(LoginRequestSchema)
+@api_bp.response(200, LoginSuccessSchema)
+@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
+@api_bp.alt_response(401, schema=ErrorSchema, description="Invalid credentials")
+@api_bp.alt_response(403, schema=ErrorSchema, description="User inactive")
+def login(data):
     """Authenticate user and return JWT."""
-    data = get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON"}), 400
+    # data = get_json()
+    # if not data:
+    #     return jsonify({"error": "Invalid JSON"}), 400
 
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -134,6 +192,11 @@ def login():
 
 # GET /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["GET"])
+@api_bp.arguments(UserPathSchema, location="path")
+@api_bp.response(200, UserOutSchema)
+@api_bp.alt_response(304, description="Not Modified")
+@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
 @auth_required
 def get_user(user_key: str, claims=None):
     """Retrieve public profile for a specific user."""
@@ -153,15 +216,22 @@ def get_user(user_key: str, claims=None):
         resp.headers["Cache-Control"] = "private, max-age=60"
         return resp
 
-    resp = jsonify(payload["user_data"])
+    resp = make_response(payload["user_data"], 200)
     resp.headers["ETag"] = etag
     resp.headers["Cache-Control"] = "private, max-age=60"
-    return resp, 200
+    return resp
 
 # PUT /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["PUT"])
+@api_bp.arguments(UserPathSchema, location="path")
+@api_bp.arguments(UpdateUserRequestSchema)
+@api_bp.response(200, UpdateUserSuccessSchema)
+@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
+@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
+@api_bp.alt_response(409, schema=ErrorSchema, description="Email already exists")
 @auth_required
-def update_user(user_key: str, claims=None):
+def update_user(user_key: str, data, claims=None):
     """Update user profile information."""
     # 1. Consolidate access and existence checks
     user = User.query.filter_by(user_key=user_key).first()
@@ -169,7 +239,7 @@ def update_user(user_key: str, claims=None):
         status = 404 if not user else 403
         return jsonify({"error": "user not found" if not user else "forbidden"}), status
 
-    data = get_json()
+    # data = get_json()
     if not data:
         return jsonify({"error": "Invalid request or role modification"}), 400
     if "user_role" in data:
@@ -205,6 +275,10 @@ def update_user(user_key: str, claims=None):
 
 # DELETE /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["DELETE"])
+@api_bp.arguments(UserPathSchema, location="path")
+@api_bp.response(200, StatusSchema)
+@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
 @auth_required
 def delete_user(user_key: str, claims=None):
     """Remove user account from system."""

@@ -13,3 +13,4 @@ pytest
 google-genai
 pylint
 flask-caching
+flask_smorest
