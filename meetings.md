@@ -39,11 +39,11 @@
   - Mika Oja
 
 ### Action points
-1. Make application installable
-2. Remove env files, DB instance, put requirements.txt in correct directory.
+1. Make application installable -> Addressed
+2. Remove env files, DB instance, put requirements.txt in correct directory. -> Addressed
 3. Combine the resources in documentation, 
-4. Uniforrm/consistent endpoints.
-5. Combine routes in a folder.
+4. Uniform/consistent endpoints.
+5. Combine routes in a folder. -> Addressed
 6. Add LLM test cases -> increase coverage
 7. Implement server side caching!
 8. Implement automated schema valiation
