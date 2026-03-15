@@ -3,14 +3,15 @@ ProBot LLM routes.
 This module handles the creation and management of AI chat threads and messages.
 """
 from datetime import datetime, UTC
-from flask import Blueprint, request, jsonify, current_app
+from flask import request, jsonify, current_app
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from google import genai
+from flask_smorest import Blueprint
 
 from models import db, User, Chat, Conversation, Model
 from auth_utils import auth_required
 
-llm_bp = Blueprint("llm", __name__)
+llm_bp = Blueprint("llm", __name__, description="LLM related APIs")
 
 def get_json():
     """Extracts JSON from request and returns a dictionary or None."""

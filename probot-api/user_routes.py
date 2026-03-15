@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
 from extensions import cache
 from flask_smorest import Blueprint
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, EXCLUDE, INCLUDE
 
 from models import db, User, UserRole
 from auth_utils import create_jwt, auth_required
@@ -22,20 +22,35 @@ api_bp = Blueprint(
 DEFAULT_ROLE_NAME = "user"
 
 class SignupRequestSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     name = fields.Str(required=True)
     email = fields.Email(required=True)
     password = fields.Str(required=True)
 
+
 class LoginRequestSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     email = fields.Email(required=True)
     password = fields.Str(required=True, load_only=True)
 
+class LinkSchema(Schema):
+    rel = fields.Str()
+    href = fields.Str()
+
 class UserOutSchema(Schema):
-    user_key = fields.Int()
+    user_key = fields.Str()
     user_id = fields.Int(allow_none=True)
+    user_role = fields.Int(allow_none=True)
+    role_name = fields.Str(allow_none=True)
     name = fields.Str()
     email = fields.Email()
     is_active = fields.Bool()
+    created_at = fields.Str(allow_none=True)
+    links = fields.List(fields.Nested(LinkSchema))
 
 class SignupSuccessSchema(Schema):
     status = fields.Str()
@@ -45,7 +60,7 @@ class LoginSuccessSchema(Schema):
     token = fields.Str()
     user = fields.Nested(UserOutSchema)
 
-class ErrorSchema(Schema):
+class SimpleErrorSchema(Schema):
     error = fields.Str()
 
 class StatusSchema(Schema):
@@ -59,14 +74,17 @@ class UserPathSchema(Schema):
     user_key = fields.Str(required=True)
 
 class UpdateUserRequestSchema(Schema):
+    class Meta:
+        unknown = INCLUDE
+
     name = fields.Str(required=False)
     email = fields.Email(required=False)
     password = fields.Str(required=False, validate=validate.Length(min=6))
 
-def get_json():
-    """Extracts JSON from request body safely."""
-    data = request.get_json(silent=True)
-    return data if isinstance(data, dict) else None
+# def get_json():
+#     """Extracts JSON from request body safely."""
+#     data = request.get_json(silent=True)
+#     return data if isinstance(data, dict) else None
 
 def user_to_dict(u: User):
     """Serializes user model to dictionary with HATEOAS links."""
@@ -122,8 +140,8 @@ def get_user_payload(user_key: str):
 @api_bp.route("/signup/", methods=["POST"])
 @api_bp.arguments(SignupRequestSchema)
 @api_bp.response(201, SignupSuccessSchema)
-@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
-@api_bp.alt_response(409, schema=ErrorSchema, description="Conflict")
+@api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
+@api_bp.alt_response(409, schema=SimpleErrorSchema, description="Conflict")
 def signup(data):
     """Register a new user account."""
     # data = get_json()
@@ -160,12 +178,11 @@ def signup(data):
 
 # POST /api/v1/login/
 @api_bp.route("/login/", methods=["POST"])
-@api_bp.route("/login/", methods=["POST"])
 @api_bp.arguments(LoginRequestSchema)
 @api_bp.response(200, LoginSuccessSchema)
-@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
-@api_bp.alt_response(401, schema=ErrorSchema, description="Invalid credentials")
-@api_bp.alt_response(403, schema=ErrorSchema, description="User inactive")
+@api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
+@api_bp.alt_response(401, schema=SimpleErrorSchema, description="Invalid credentials")
+@api_bp.alt_response(403, schema=SimpleErrorSchema, description="User inactive")
 def login(data):
     """Authenticate user and return JWT."""
     # data = get_json()
@@ -192,14 +209,13 @@ def login(data):
 
 # GET /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["GET"])
-@api_bp.arguments(UserPathSchema, location="path")
 @api_bp.response(200, UserOutSchema)
 @api_bp.alt_response(304, description="Not Modified")
-@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
-@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
+@api_bp.alt_response(403, schema=SimpleErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=SimpleErrorSchema, description="User not found")
 @auth_required
-def get_user(user_key: str, claims=None):
-    """Retrieve public profile for a specific user."""
+def get_user(user_key, claims=None):
+    """Retrieve the authenticated user's profile."""
     if claims.get("user_key") != user_key:
         return jsonify({"error": "forbidden"}), 403
 
@@ -223,28 +239,25 @@ def get_user(user_key: str, claims=None):
 
 # PUT /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["PUT"])
-@api_bp.arguments(UserPathSchema, location="path")
 @api_bp.arguments(UpdateUserRequestSchema)
 @api_bp.response(200, UpdateUserSuccessSchema)
-@api_bp.alt_response(400, schema=ErrorSchema, description="Bad request")
-@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
-@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
-@api_bp.alt_response(409, schema=ErrorSchema, description="Email already exists")
+@api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
+@api_bp.alt_response(403, schema=SimpleErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=SimpleErrorSchema, description="User not found")
+@api_bp.alt_response(409, schema=SimpleErrorSchema, description="Email already exists")
 @auth_required
-def update_user(user_key: str, data, claims=None):
+def update_user(data, user_key, claims=None):
     """Update user profile information."""
-    # 1. Consolidate access and existence checks
     user = User.query.filter_by(user_key=user_key).first()
     if not user or claims.get("user_key") != user_key:
         status = 404 if not user else 403
         return jsonify({"error": "user not found" if not user else "forbidden"}), status
 
-    # data = get_json()
     if not data:
         return jsonify({"error": "Invalid request or role modification"}), 400
     if "user_role" in data:
         return jsonify({"error": "User role cannot be modified"}), 403
-    # 2. Consolidate validation logic into one check
+
     error = None
     if "name" in data and not (data["name"] or "").strip():
         error = "name cannot be empty"
@@ -256,7 +269,6 @@ def update_user(user_key: str, data, claims=None):
     if error:
         return jsonify({"error": error}), 400
 
-    # Update logic
     if "name" in data:
         user.name = data["name"].strip()
     if "email" in data:
@@ -264,7 +276,6 @@ def update_user(user_key: str, data, claims=None):
     if "password" in data:
         user.password = generate_password_hash(data["password"])
 
-    # 3. Handle database commit
     try:
         db.session.commit()
         cache.delete(f"user_profile_payload:{user_key}")
@@ -275,12 +286,11 @@ def update_user(user_key: str, data, claims=None):
 
 # DELETE /api/v1/users/<user_key>/
 @api_bp.route("/users/<string:user_key>/", methods=["DELETE"])
-@api_bp.arguments(UserPathSchema, location="path")
 @api_bp.response(200, StatusSchema)
-@api_bp.alt_response(403, schema=ErrorSchema, description="Forbidden")
-@api_bp.alt_response(404, schema=ErrorSchema, description="User not found")
+@api_bp.alt_response(403, schema=SimpleErrorSchema, description="Forbidden")
+@api_bp.alt_response(404, schema=SimpleErrorSchema, description="User not found")
 @auth_required
-def delete_user(user_key: str, claims=None):
+def delete_user(user_key, claims=None):
     """Remove user account from system."""
     if claims.get("user_key") != user_key:
         return jsonify({"error": "forbidden"}), 403

@@ -1,0 +1,410 @@
+components:
+  responses:
+    DEFAULT_ERROR:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: Default error response
+    UNPROCESSABLE_ENTITY:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+      description: Unprocessable Entity
+  schemas:
+    Error:
+      additionalProperties: false
+      properties:
+        code:
+          description: Error code
+          type: integer
+        errors:
+          additionalProperties: {}
+          description: Errors
+          type: object
+        message:
+          description: Error message
+          type: string
+        status:
+          description: Error name
+          type: string
+      type: object
+    Link:
+      additionalProperties: false
+      properties:
+        href:
+          type: string
+        rel:
+          type: string
+      type: object
+    LoginRequest:
+      properties:
+        email:
+          format: email
+          type: string
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+      type: object
+    LoginSuccess:
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserOut'
+      type: object
+    PaginationMetadata:
+      additionalProperties: false
+      properties:
+        first_page:
+          type: integer
+        last_page:
+          type: integer
+        next_page:
+          type: integer
+        page:
+          type: integer
+        previous_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+      type: object
+    SignupRequest:
+      properties:
+        email:
+          format: email
+          type: string
+        name:
+          type: string
+        password:
+          type: string
+      required:
+      - email
+      - name
+      - password
+      type: object
+    SignupSuccess:
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserOut'
+      type: object
+    SimpleError:
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+      type: object
+    Status:
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+      type: object
+    UpdateUserRequest:
+      additionalProperties: true
+      properties:
+        email:
+          format: email
+          type: string
+        name:
+          type: string
+        password:
+          minLength: 6
+          type: string
+      type: object
+    UpdateUserSuccess:
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserOut'
+      type: object
+    UserOut:
+      additionalProperties: false
+      properties:
+        created_at:
+          nullable: true
+          type: string
+        email:
+          format: email
+          type: string
+        is_active:
+          type: boolean
+        links:
+          items:
+            $ref: '#/components/schemas/Link'
+          type: array
+        name:
+          type: string
+        role_name:
+          nullable: true
+          type: string
+        user_id:
+          nullable: true
+          type: integer
+        user_key:
+          type: string
+        user_role:
+          nullable: true
+          type: integer
+      type: object
+info:
+  title: Pro Bot API
+  version: v1
+openapi: 3.0.3
+paths:
+  /api/v1/chats/:
+    post:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Create a new chat thread for a user.
+      tags:
+      - llm
+  /api/v1/chats/{chat_key}/:
+    delete:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Delete a specific chat and all its messages.
+      tags:
+      - llm
+    parameters:
+    - in: path
+      name: chat_key
+      required: true
+      schema:
+        minLength: 1
+        type: string
+  /api/v1/chats/{chat_key}/messages/:
+    get:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Get all messages in a chat thread.
+      tags:
+      - llm
+    parameters:
+    - in: path
+      name: chat_key
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    post:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Send a new message to an existing chat.
+      tags:
+      - llm
+  /api/v1/login/:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+          description: OK
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Bad request
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Invalid credentials
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: User inactive
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Authenticate user and return JWT.
+      tags:
+      - api
+  /api/v1/signup/:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupSuccess'
+          description: Created
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Bad request
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Conflict
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Register a new user account.
+      tags:
+      - api
+  /api/v1/users/{user_key}/:
+    delete:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+          description: OK
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: User not found
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Remove user account from system.
+      tags:
+      - api
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+          description: OK
+        '304':
+          description: Not Modified
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: User not found
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Retrieve the authenticated user's profile.
+      tags:
+      - api
+    parameters:
+    - in: path
+      name: user_key
+      required: true
+      schema:
+        minLength: 1
+        type: string
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserSuccess'
+          description: OK
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Bad request
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: User not found
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimpleError'
+          description: Email already exists
+        '422':
+          $ref: '#/components/responses/UNPROCESSABLE_ENTITY'
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: Update user profile information.
+      tags:
+      - api
+  /api/v1/users/{user_key}/chats/:
+    get:
+      responses:
+        default:
+          $ref: '#/components/responses/DEFAULT_ERROR'
+      summary: List all chat threads for a user.
+      tags:
+      - llm
+    parameters:
+    - in: path
+      name: user_key
+      required: true
+      schema:
+        minLength: 1
+        type: string
+tags:
+- description: User and auth related APIs
+  name: api
+- description: LLM related APIs
+  name: llm

@@ -17,10 +17,8 @@ def _login(client, email="alice@example.com", password="password123"):
     """Helper to perform a login POST request and retrieve a response."""
     return client.post("/api/v1/login/", json={"email": email, "password": password})
 
-def _auth_header(token: str):
-    """Helper to format the Bearer token for Authorization headers."""
-    return {"Authorization": f"Bearer {token}"}
 def _auth_header(token: str, extra=None):
+    """Helper to format the Bearer token for Authorization headers."""
     h = {"Authorization": f"Bearer {token}"}
     if extra:
         h.update(extra)
