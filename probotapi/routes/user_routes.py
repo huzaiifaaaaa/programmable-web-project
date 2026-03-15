@@ -6,12 +6,12 @@ import hashlib
 from flask import request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import IntegrityError
-from extensions import cache
+from probotapi.extensions import cache
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields, validate, EXCLUDE, INCLUDE
 
-from models import db, User, UserRole
-from auth_utils import create_jwt, auth_required
+from probotapi.models import db, User, UserRole
+from probotapi.auth_utils import create_jwt, auth_required
 
 api_bp = Blueprint(
     "api",

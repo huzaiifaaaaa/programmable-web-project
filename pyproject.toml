@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "probot-api" 
+version = "0.1.0"
+description = "ProBot Flask API"
+authors = [
+    {name = "Muhammad Huzaifa"},
+    {name = "Zhenfei Sun"},
+    {name = "Syed Safiullah Shah"}
+]
+dependencies = [
+    "Flask",
+    "Flask-SQLAlchemy",
+    "Flask-Caching",
+    "flask-smorest",
+    "google-genai",
+    "jwt"
+]
+
+requires-python = ">=3.9"
+
+[tool.setuptools]
+packages = ["probotapi"] 
+
+[project.scripts]
+probot-api = "probotapi.app:app.run"

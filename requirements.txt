@@ -17,3 +17,5 @@ flask_smorest
 pyyaml
 Flask-Caching==2.1.0
 flask-smorest==0.44.0
+jwt
+google

@@ -2,7 +2,7 @@
 ProBot DB initialisation.
 """
 import os
-from models import db, UserRole, Model, User
+from probotapi.models import db, UserRole, Model, User
 
 def insert_data():
     """Seed database."""

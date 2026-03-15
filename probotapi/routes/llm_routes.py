@@ -8,8 +8,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from google import genai
 from flask_smorest import Blueprint
 
-from models import db, User, Chat, Conversation, Model
-from auth_utils import auth_required
+from probotapi.models import db, User, Chat, Conversation, Model
+from probotapi.auth_utils import auth_required
 
 llm_bp = Blueprint("llm", __name__, description="LLM related APIs")
 
