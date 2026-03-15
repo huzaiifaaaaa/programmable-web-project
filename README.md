@@ -78,6 +78,12 @@ python app.py
 * **Local Entry Point**: `http://127.0.0.1:5000/api/v1/`
 * **Remote Access URL**: `https://[YOUR-DEPLOYED-URL]/api/v1/`
 
+4. **Packagin**:
+```bash
+pip install -e .     
+python -m probotapi.app
+
+```
 
 5. **Testing & Coverage**
 
