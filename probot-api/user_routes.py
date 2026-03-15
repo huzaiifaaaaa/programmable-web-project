@@ -81,11 +81,6 @@ class UpdateUserRequestSchema(Schema):
     email = fields.Email(required=False)
     password = fields.Str(required=False, validate=validate.Length(min=6))
 
-# def get_json():
-#     """Extracts JSON from request body safely."""
-#     data = request.get_json(silent=True)
-#     return data if isinstance(data, dict) else None
-
 def user_to_dict(u: User):
     """Serializes user model to dictionary with HATEOAS links."""
     user_uri = f"/api/v1/users/{u.user_key}/"
@@ -144,9 +139,6 @@ def get_user_payload(user_key: str):
 @api_bp.alt_response(409, schema=SimpleErrorSchema, description="Conflict")
 def signup(data):
     """Register a new user account."""
-    # data = get_json()
-    # if not data:
-    #     return jsonify({"error": "Invalid JSON"}), 400
 
     name = (data.get("name") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -185,9 +177,6 @@ def signup(data):
 @api_bp.alt_response(403, schema=SimpleErrorSchema, description="User inactive")
 def login(data):
     """Authenticate user and return JWT."""
-    # data = get_json()
-    # if not data:
-    #     return jsonify({"error": "Invalid JSON"}), 400
 
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
