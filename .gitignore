@@ -8,3 +8,4 @@ programmable-web-project.wiki/.DS_Store
 # ignore .env files but keep the example
 !.env.example
 
+*.pyc
