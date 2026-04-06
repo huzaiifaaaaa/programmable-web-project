@@ -1,0 +1,1131 @@
+openapi: 3.0.3
+info:
+  title: ProBot API
+  version: v1
+  description: |
+    ProBot is a REST API for an AI chat assistant powered by Google Gemini.
+    It supports user registration, authentication, and persistent AI chat sessions.
+
+    ## Authentication
+    Most endpoints require a Bearer JWT token in the `Authorization` header.
+    Obtain a token via `POST /api/v1/login/`.
+
+    ## Media Types
+    All request and response bodies use `application/json`.
+
+    ## HATEOAS Links
+    User-related responses include a `links` array with `rel` and `href` fields
+    following IANA link relation names (`self`, `related`).
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+# ─────────────────────────────────────────────
+# Security Schemes
+# ─────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        HS256-signed JWT. Claims: `user_key`, `user_id`, `role_id`, `iat`, `exp`.
+        Default expiry is 3600 seconds (1 hour).
+
+  # ─────────────────────────────────────────────
+  # Reusable Parameters
+  # ─────────────────────────────────────────────
+  parameters:
+    UserKey:
+      name: user_key
+      in: path
+      required: true
+      description: UUID that uniquely identifies a user.
+      schema:
+        type: string
+        format: uuid
+        example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    ChatKey:
+      name: chat_key
+      in: path
+      required: true
+      description: UUID that uniquely identifies a chat session.
+      schema:
+        type: string
+        format: uuid
+        example: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      required: false
+      description: ETag value from a previous response. If matched, a 304 is returned.
+      schema:
+        type: string
+        example: '"a3f1e9bc4d..."'
+
+  # ─────────────────────────────────────────────
+  # Reusable Schemas
+  # ─────────────────────────────────────────────
+  schemas:
+
+    # --- Request Schemas ---
+
+    SignupRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          example: "Jane Doe"
+        email:
+          type: string
+          format: email
+          example: "jane@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 1
+          example: "s3cur3P@ss"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "jane@example.com"
+        password:
+          type: string
+          format: password
+          example: "s3cur3P@ss"
+
+    UpdateUserRequest:
+      type: object
+      description: >
+        All fields are optional. Send only the fields you want to update.
+        Password must be at least 6 characters. Role cannot be changed.
+      properties:
+        name:
+          type: string
+          example: "Jane Smith"
+        email:
+          type: string
+          format: email
+          example: "jane.smith@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: "newP@ssw0rd"
+
+    SendMessageRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: >
+            The user's prompt. Internally limited to 150 words before being
+            sent to the LLM.
+          example: "What is the capital of Finland?"
+        model_key:
+          type: string
+          description: >
+            Optional Gemini model identifier (e.g. `gemini-3-flash-preview`).
+            Defaults to the server-configured model. The prefix `models/` is
+            added automatically if omitted.
+          example: "gemini-3-flash-preview"
+
+    # --- Shared Object Schemas ---
+
+    Link:
+      type: object
+      properties:
+        rel:
+          type: string
+          description: IANA link relation name.
+          example: "self"
+        href:
+          type: string
+          description: URL of the linked resource.
+          example: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+
+    UserOut:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          example: 1
+        user_key:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        user_role:
+          type: integer
+          description: Foreign key to the user_role table.
+          example: 1
+        role_name:
+          type: string
+          example: "user"
+        name:
+          type: string
+          example: "Jane Doe"
+        email:
+          type: string
+          format: email
+          example: "jane@example.com"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-04-06T12:00:00"
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+          example:
+            - rel: "self"
+              href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+            - rel: "related"
+              href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/chats/"
+
+    ChatOut:
+      type: object
+      properties:
+        chat_id:
+          type: integer
+          example: 7
+        chat_key:
+          type: string
+          format: uuid
+          example: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+        user_id:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-04-06T13:00:00"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-04-06T13:05:00"
+
+    ConversationOut:
+      type: object
+      properties:
+        conversation_id:
+          type: integer
+          example: 42
+        conversation_key:
+          type: string
+          format: uuid
+          example: "11223344-5566-7788-99aa-bbccddeeff00"
+        chat_id:
+          type: integer
+          example: 7
+        model_id:
+          type: integer
+          example: 1
+        model_key:
+          type: string
+          example: "gemini-3-flash-preview"
+        request:
+          type: string
+          description: The user's message (capped at 150 words).
+          example: "What is the capital of Finland?"
+        response:
+          type: string
+          description: The LLM's reply (capped at 150 words).
+          example: "The capital of Finland is Helsinki."
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-04-06T13:05:10"
+
+    # --- Response Wrapper Schemas ---
+
+    SignupSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "created"
+        user:
+          $ref: '#/components/schemas/UserOut'
+
+    LoginSuccess:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Bearer JWT to use in subsequent requests.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/UserOut'
+
+    UpdateUserSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "updated"
+        user:
+          $ref: '#/components/schemas/UserOut'
+
+    CreateChatSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "created"
+        chat:
+          $ref: '#/components/schemas/ChatOut'
+
+    ListChatsSuccess:
+      type: object
+      properties:
+        chats:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatOut'
+        count:
+          type: integer
+          example: 3
+
+    SendMessageSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "message_sent"
+        conversation:
+          $ref: '#/components/schemas/ConversationOut'
+
+    GetMessagesSuccess:
+      type: object
+      properties:
+        chat:
+          $ref: '#/components/schemas/ChatOut'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationOut'
+
+    DeletedStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "deleted"
+
+    # --- Error Schemas ---
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "descriptive error message"
+
+  # ─────────────────────────────────────────────
+  # Reusable Responses
+  # ─────────────────────────────────────────────
+  responses:
+
+    Unauthorized:
+      description: Missing, expired, or invalid Bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_token:
+              summary: No Authorization header supplied
+              value:
+                error: "Missing Bearer token"
+            expired_token:
+              summary: JWT has expired
+              value:
+                error: "Token expired"
+            invalid_token:
+              summary: JWT signature is invalid
+              value:
+                error: "Invalid token"
+
+    Forbidden:
+      description: Authenticated user is not allowed to access this resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+
+    NotFound:
+      description: The requested resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "user not found"
+
+    Conflict:
+      description: A resource with the given unique value already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "email already exists"
+
+    BadRequest:
+      description: The request body is missing required fields or contains invalid data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "name, email, password are required"
+
+    InternalServerError:
+      description: An unexpected server-side error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "failed to create chat"
+
+# ─────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────
+paths:
+
+  # ── Health Check ──────────────────────────────
+  /:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns basic API status and runtime environment information.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  environment:
+                    type: string
+                  database:
+                    type: string
+              example:
+                message: "ProBot API is running!"
+                environment: "stage"
+                database: "sqlite:///pro_bot_stage.db"
+
+  # ── Auth ──────────────────────────────────────
+  /api/v1/signup/:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: >
+        Creates a new user account with the default role `user`.
+        Email addresses are lowercased and stripped of whitespace before storage.
+        Passwords are hashed server-side (PBKDF2/werkzeug).
+      operationId: signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            example:
+              name: "Jane Doe"
+              email: "jane@example.com"
+              password: "s3cur3P@ss"
+      responses:
+        '201':
+          description: User created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupSuccess'
+              example:
+                status: "created"
+                user:
+                  user_id: 1
+                  user_key: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  user_role: 1
+                  role_name: "user"
+                  name: "Jane Doe"
+                  email: "jane@example.com"
+                  is_active: true
+                  created_at: "2026-04-06T12:00:00"
+                  links:
+                    - rel: "self"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+                    - rel: "related"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/chats/"
+        '400':
+          description: Required field missing or server misconfiguration.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_fields:
+                  summary: One or more required fields are absent
+                  value:
+                    error: "name, email, password are required"
+                missing_role:
+                  summary: Default role not seeded in the database
+                  value:
+                    error: "default role 'user' not found, seed roles first"
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/login/:
+    post:
+      tags:
+        - Auth
+      summary: Log in and obtain a JWT
+      description: >
+        Validates the user's credentials and returns a signed JWT.
+        The token should be sent as `Authorization: Bearer <token>` on
+        subsequent requests.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "jane@example.com"
+              password: "s3cur3P@ss"
+      responses:
+        '200':
+          description: Login successful. Returns JWT and user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+              example:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2tleSI6ImExYjJjM2Q0LWU1ZjYtNzg5MC1hYmNkLWVmMTIzNDU2Nzg5MCIsInVzZXJfaWQiOjEsInJvbGVfaWQiOjEsImlhdCI6MTc0Mzk0MDAwMCwiZXhwIjoxNzQzOTQzNjAwfQ.signature"
+                user:
+                  user_id: 1
+                  user_key: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  user_role: 1
+                  role_name: "user"
+                  name: "Jane Doe"
+                  email: "jane@example.com"
+                  is_active: true
+                  created_at: "2026-04-06T12:00:00"
+                  links:
+                    - rel: "self"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+                    - rel: "related"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/chats/"
+        '400':
+          description: Missing email or password field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "email and password are required"
+        '401':
+          description: Credentials are incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "invalid credentials"
+        '403':
+          description: Account exists but has been deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user is inactive"
+
+  # ── Users ─────────────────────────────────────
+  /api/v1/users/{user_key}/:
+    parameters:
+      - $ref: '#/components/parameters/UserKey'
+
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: >
+        Returns the authenticated user's profile.
+        Supports conditional GET via `If-None-Match`/ETag headers (SHA-256 of
+        user data). A matching ETag results in `304 Not Modified`.
+        Responses are also cached server-side for 60 seconds.
+        A user can only retrieve their own profile.
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IfNoneMatch'
+      responses:
+        '200':
+          description: User profile returned.
+          headers:
+            ETag:
+              description: SHA-256 fingerprint of the current user data.
+              schema:
+                type: string
+                example: '"a3f1e9bc4d7e2a1b5c8d0e3f6a9b2c4d"'
+            Cache-Control:
+              description: Caching directive for the client.
+              schema:
+                type: string
+                example: "private, max-age=60"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOut'
+              examples:
+                active_user:
+                  summary: Active user profile
+                  value:
+                    user_id: 1
+                    user_key: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    user_role: 1
+                    role_name: "user"
+                    name: "Jane Doe"
+                    email: "jane@example.com"
+                    is_active: true
+                    created_at: "2026-04-06T12:00:00"
+                    links:
+                      - rel: "self"
+                        href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+                      - rel: "related"
+                        href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/chats/"
+                inactive_user:
+                  summary: Inactive/deactivated user profile
+                  value:
+                    user_id: 2
+                    user_key: "b2c3d4e5-f6a7-8901-bcde-f01234567891"
+                    user_role: 1
+                    role_name: "user"
+                    name: "Bob Inactive"
+                    email: "bob@example.com"
+                    is_active: false
+                    created_at: "2026-01-15T09:30:00"
+                    links:
+                      - rel: "self"
+                        href: "/api/v1/users/b2c3d4e5-f6a7-8901-bcde-f01234567891/"
+                      - rel: "related"
+                        href: "/api/v1/users/b2c3d4e5-f6a7-8901-bcde-f01234567891/chats/"
+        '304':
+          description: >
+            Not Modified — ETag matched. No body is returned.
+            The client should use its cached copy.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user not found"
+
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: >
+        Updates one or more fields of the authenticated user's profile.
+        All fields are optional — only provided fields are changed.
+        The `user_role` field cannot be modified; attempting to do so
+        returns `403`. Passwords must be at least 6 characters.
+        A user can only update their own profile.
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            examples:
+              update_name:
+                summary: Update name only
+                value:
+                  name: "Jane Smith"
+              update_email:
+                summary: Update email only
+                value:
+                  email: "jane.smith@example.com"
+              update_password:
+                summary: Update password only
+                value:
+                  password: "newP@ssw0rd"
+              update_all:
+                summary: Update all fields at once
+                value:
+                  name: "Jane Smith"
+                  email: "jane.smith@example.com"
+                  password: "newP@ssw0rd"
+      responses:
+        '200':
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserSuccess'
+              example:
+                status: "updated"
+                user:
+                  user_id: 1
+                  user_key: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  user_role: 1
+                  role_name: "user"
+                  name: "Jane Smith"
+                  email: "jane.smith@example.com"
+                  is_active: true
+                  created_at: "2026-04-06T12:00:00"
+                  links:
+                    - rel: "self"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/"
+                    - rel: "related"
+                      href: "/api/v1/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890/chats/"
+        '400':
+          description: Invalid field value.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                empty_name:
+                  value:
+                    error: "name cannot be empty"
+                empty_email:
+                  value:
+                    error: "email cannot be empty"
+                short_password:
+                  value:
+                    error: "password too short (>=6)"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Forbidden — wrong user or attempted role change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                wrong_user:
+                  value:
+                    error: "forbidden"
+                role_change:
+                  value:
+                    error: "User role cannot be modified"
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user not found"
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user account
+      description: >
+        Permanently deletes the authenticated user's account and all
+        associated chat sessions and conversation history.
+        A user can only delete their own account.
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedStatus'
+              example:
+                status: "deleted"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user not found"
+
+  # ── Chats ─────────────────────────────────────
+  /api/v1/chats/:
+    post:
+      tags:
+        - Chats
+      summary: Create a new chat session
+      description: >
+        Creates an empty chat session for the authenticated user.
+        No request body is required. Use `POST /api/v1/chats/{chat_key}/messages/`
+        to send the first message.
+      operationId: createChat
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Chat session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateChatSuccess'
+              example:
+                status: "created"
+                chat:
+                  chat_id: 7
+                  chat_key: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+                  user_id: 1
+                  created_at: "2026-04-06T13:00:00"
+                  updated_at: "2026-04-06T13:00:00"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Authenticated user not found in the database.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user not found"
+        '500':
+          description: Database error while saving the new chat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "failed to create chat"
+
+  /api/v1/users/{user_key}/chats/:
+    parameters:
+      - $ref: '#/components/parameters/UserKey'
+
+    get:
+      tags:
+        - Chats
+      summary: List all chats for a user
+      description: >
+        Returns all chat sessions belonging to the specified user, ordered
+        by `updated_at` descending (most recently active first).
+        A user can only list their own chats.
+      operationId: listChats
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of chat sessions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListChatsSuccess'
+              examples:
+                multiple_chats:
+                  summary: User has two chat sessions
+                  value:
+                    chats:
+                      - chat_id: 7
+                        chat_key: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+                        user_id: 1
+                        created_at: "2026-04-06T13:00:00"
+                        updated_at: "2026-04-06T13:05:00"
+                      - chat_id: 3
+                        chat_key: "aabbccdd-eeff-0011-2233-445566778899"
+                        user_id: 1
+                        created_at: "2026-04-05T09:00:00"
+                        updated_at: "2026-04-05T09:20:00"
+                    count: 2
+                no_chats:
+                  summary: User has no chat sessions yet
+                  value:
+                    chats: []
+                    count: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "user not found"
+
+  /api/v1/chats/{chat_key}/:
+    parameters:
+      - $ref: '#/components/parameters/ChatKey'
+
+    delete:
+      tags:
+        - Chats
+      summary: Delete a chat session
+      description: >
+        Permanently deletes a chat session and all its conversation history.
+        Only the owner of the chat can delete it.
+      operationId: deleteChat
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Chat deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedStatus'
+              example:
+                status: "deleted"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Chat not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "chat not found"
+        '500':
+          description: Database error while deleting the chat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "failed to delete chat"
+
+  # ── Messages ──────────────────────────────────
+  /api/v1/chats/{chat_key}/messages/:
+    parameters:
+      - $ref: '#/components/parameters/ChatKey'
+
+    post:
+      tags:
+        - Messages
+      summary: Send a message and get an AI reply
+      description: >
+        Sends a user message to the Gemini LLM and stores both the request and
+        response as a `Conversation` record.
+
+        The message is truncated to 150 words before being forwarded to the model.
+        The LLM response is also capped at 150 words.
+
+        The chat's `updated_at` timestamp is refreshed on each successful call.
+        Only the owner of the chat may send messages to it.
+      operationId: sendMessage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+            examples:
+              simple_question:
+                summary: A plain factual question using the default model
+                value:
+                  message: "What is the capital of Finland?"
+              custom_model:
+                summary: Same question but with a custom model key
+                value:
+                  message: "What is the capital of Finland?"
+                  model_key: "gemini-3-flash-preview"
+      responses:
+        '201':
+          description: Message sent and AI response received.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMessageSuccess'
+              example:
+                status: "message_sent"
+                conversation:
+                  conversation_id: 42
+                  conversation_key: "11223344-5566-7788-99aa-bbccddeeff00"
+                  chat_id: 7
+                  model_id: 1
+                  model_key: "gemini-3-flash-preview"
+                  request: "What is the capital of Finland?"
+                  response: "The capital of Finland is Helsinki."
+                  created_at: "2026-04-06T13:05:10"
+        '400':
+          description: Missing or empty `message` field.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "message is required"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Chat or model not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                chat_not_found:
+                  value:
+                    error: "chat not found"
+                model_not_found:
+                  value:
+                    error: "model 'gemini-3-flash-preview' not found"
+        '500':
+          description: Database error while saving the conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "failed to save conversation"
+        '502':
+          description: >
+            The upstream Gemini API returned an error (e.g. quota exceeded,
+            invalid API key, or the model rejected the request).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "llm_error: API Client Error: 429 Resource has been exhausted"
+
+    get:
+      tags:
+        - Messages
+      summary: Get all messages in a chat
+      description: >
+        Returns the full conversation history for a chat session in
+        chronological order (oldest message first).
+        Only the owner of the chat may retrieve its messages.
+      operationId: getMessages
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Conversation history returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMessagesSuccess'
+              examples:
+                with_messages:
+                  summary: Chat with two message exchanges
+                  value:
+                    chat:
+                      chat_id: 7
+                      chat_key: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+                      user_id: 1
+                      created_at: "2026-04-06T13:00:00"
+                      updated_at: "2026-04-06T13:10:00"
+                    messages:
+                      - conversation_id: 42
+                        conversation_key: "11223344-5566-7788-99aa-bbccddeeff00"
+                        chat_id: 7
+                        model_id: 1
+                        model_key: "gemini-3-flash-preview"
+                        request: "What is the capital of Finland?"
+                        response: "The capital of Finland is Helsinki."
+                        created_at: "2026-04-06T13:05:10"
+                      - conversation_id: 43
+                        conversation_key: "aabbccdd-1122-3344-5566-778899001122"
+                        chat_id: 7
+                        model_id: 1
+                        model_key: "gemini-3-flash-preview"
+                        request: "What is the population of Helsinki?"
+                        response: "Helsinki has a population of approximately 650,000 people in the city proper."
+                        created_at: "2026-04-06T13:10:05"
+                empty_chat:
+                  summary: Chat with no messages yet
+                  value:
+                    chat:
+                      chat_id: 8
+                      chat_key: "99887766-5544-3322-1100-ffeeddccbbaa"
+                      user_id: 1
+                      created_at: "2026-04-06T14:00:00"
+                      updated_at: "2026-04-06T14:00:00"
+                    messages: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Chat not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "chat not found"
+
+tags:
+  - name: Health
+    description: API health and status.
+  - name: Auth
+    description: User registration and authentication.
+  - name: Users
+    description: User profile management.
+  - name: Chats
+    description: Chat session lifecycle.
+  - name: Messages
+    description: Sending and retrieving AI messages within a chat.
