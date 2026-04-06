@@ -4,18 +4,21 @@ This module contains functional tests for the RESTful API implementation.
 It verifies resource addressability, uniform interface, and security constraints.
 """
 
+AUTH_SIGNUP_CANONICAL = "/api/v1/auth/signup"
+AUTH_LOGIN_CANONICAL = "/api/v1/auth/login"
+
 # --- Helper Functions for Test Cleanliness ---
 
 def _signup(client, name="Alice", email="alice@example.com", password="password123", extra=None):
-    """Helper to perform a signup POST request."""
+    """Helper to perform a signup POST request via canonical auth path."""
     payload = {"name": name, "email": email, "password": password}
     if extra:
         payload.update(extra)
-    return client.post("/api/v1/signup/", json=payload)
+    return client.post(AUTH_SIGNUP_CANONICAL, json=payload)
 
 def _login(client, email="alice@example.com", password="password123"):
-    """Helper to perform a login POST request and retrieve a response."""
-    return client.post("/api/v1/login/", json={"email": email, "password": password})
+    """Helper to perform a login POST request via canonical auth path."""
+    return client.post(AUTH_LOGIN_CANONICAL, json={"email": email, "password": password})
 
 def _auth_header(token: str, extra=None):
     """Helper to format the Bearer token for Authorization headers."""
@@ -100,7 +103,7 @@ def test_get_user_requires_auth(client):
     r = _signup(client)
     user_key = r.get_json()["user"]["user_key"]
 
-    r2 = client.get(f"/api/v1/users/{user_key}/") # Attempt access without headers
+    r2 = client.get(f"/api/v1/users/{user_key}") # Attempt access without headers
     assert r2.status_code == 401
 
 
@@ -119,7 +122,7 @@ def test_get_user_only_self_allowed(client):
     key2 = r2.get_json()["user"]["user_key"]
 
     # User 1 tries to read User 2's data
-    r = client.get(f"/api/v1/users/{key2}/", headers=_auth_header(token1))
+    r = client.get(f"/api/v1/users/{key2}", headers=_auth_header(token1))
     assert r.status_code == 403
 
 
@@ -133,7 +136,7 @@ def test_get_user_success(client):
     key = r1.get_json()["user"]["user_key"]
     token = _login(client).get_json()["token"]
 
-    r = client.get(f"/api/v1/users/{key}/", headers=_auth_header(token))
+    r = client.get(f"/api/v1/users/{key}", headers=_auth_header(token))
     assert r.status_code == 200, r.get_json()
     data = r.get_json()
     assert data["user_key"] == key
@@ -151,7 +154,7 @@ def test_update_user_success_name_and_password(client):
 
     # Perform update
     r = client.put(
-        f"/api/v1/users/{key}/",
+        f"/api/v1/users/{key}",
         json={"name": "Alice2", "password": "newpassword123"},
         headers=_auth_header(token),
     )
@@ -177,7 +180,7 @@ def test_user_profile_etag_and_cache_headers(client):
     token = r_login.get_json()["token"]
 
     # first GET with response 200, has ETag and cache-control
-    r1 = client.get(f"/api/v1/users/{user_key}/", headers=_auth_header(token))
+    r1 = client.get(f"/api/v1/users/{user_key}", headers=_auth_header(token))
     assert r1.status_code == 200, r1.get_json()
     assert "ETag" in r1.headers
     assert r1.headers["Cache-Control"] == "private, max-age=60"
@@ -188,7 +191,7 @@ def test_user_profile_etag_and_cache_headers(client):
 
     # second GET with If-None-Match response 304, empty body
     r2 = client.get(
-        f"/api/v1/users/{user_key}/",
+        f"/api/v1/users/{user_key}",
         headers=_auth_header(token, {"If-None-Match": etag1}),
     )
     assert r2.status_code == 304
@@ -210,27 +213,27 @@ def test_etag_changes_after_update_and_old_etag_no_longer_valid(client):
     token = _login(client).get_json()["token"]
 
     # first GET
-    r1 = client.get(f"/api/v1/users/{user_key}/", headers=_auth_header(token))
+    r1 = client.get(f"/api/v1/users/{user_key}", headers=_auth_header(token))
     assert r1.status_code == 200
     etag1 = r1.headers["ETag"]
 
     # update user
     r_put = client.put(
-        f"/api/v1/users/{user_key}/",
+        f"/api/v1/users/{user_key}",
         json={"name": "Alice Updated"},
         headers=_auth_header(token),
     )
     assert r_put.status_code == 200, r_put.get_json()
 
     # GET again and ETag should be different
-    r3 = client.get(f"/api/v1/users/{user_key}/", headers=_auth_header(token))
+    r3 = client.get(f"/api/v1/users/{user_key}", headers=_auth_header(token))
     assert r3.status_code == 200
     etag2 = r3.headers["ETag"]
     assert etag2 != etag1
 
     # use old etag1
     r4 = client.get(
-        f"/api/v1/users/{user_key}/",
+        f"/api/v1/users/{user_key}",
         headers=_auth_header(token, {"If-None-Match": etag1}),
     )
     assert r4.status_code == 200
@@ -249,7 +252,7 @@ def test_update_user_forbids_user_role_change(client):
     token = _login(client).get_json()["token"]
 
     r = client.put(
-        f"/api/v1/users/{key}/",
+        f"/api/v1/users/{key}",
         json={"user_role": 2},
         headers=_auth_header(token),
     )
@@ -271,7 +274,7 @@ def test_update_user_duplicate_email_conflict(client):
 
     # User 1 tries to claim User 2's email
     r = client.put(
-        f"/api/v1/users/{key1}/",
+        f"/api/v1/users/{key1}",
         json={"email": "bob@example.com"},
         headers=_auth_header(token1),
     )
@@ -289,10 +292,70 @@ def test_delete_user_success_and_then_login_fails(client):
     token = _login(client).get_json()["token"]
 
     # Remove resource
-    r = client.delete(f"/api/v1/users/{key}/", headers=_auth_header(token))
+    r = client.delete(f"/api/v1/users/{key}", headers=_auth_header(token))
     assert r.status_code == 200
     assert r.get_json()["status"] == "deleted"
 
     # Verify deletion
     r2 = _login(client)
     assert r2.status_code == 401
+
+
+def test_canonical_auth_routes_signup_and_login(client):
+    """Canonical auth endpoints should support signup/login without trailing slash."""
+    signup_res = _signup(client, email="canonical@example.com")
+    assert signup_res.status_code == 201, signup_res.get_json()
+
+    login_res = _login(client, email="canonical@example.com")
+    assert login_res.status_code == 200, login_res.get_json()
+    assert "token" in login_res.get_json()
+
+
+def test_canonical_user_routes_without_trailing_slash(client):
+    """Canonical user resource path should work for GET/PUT/DELETE."""
+    r_signup = _signup(client, email="noslash@example.com")
+    user_key = r_signup.get_json()["user"]["user_key"]
+    token = _login(client, email="noslash@example.com").get_json()["token"]
+
+    get_res = client.get(f"/api/v1/users/{user_key}", headers=_auth_header(token))
+    assert get_res.status_code == 200, get_res.get_json()
+
+    put_res = client.put(
+        f"/api/v1/users/{user_key}",
+        json={"name": "No Slash"},
+        headers=_auth_header(token),
+    )
+    assert put_res.status_code == 200, put_res.get_json()
+
+    delete_res = client.delete(f"/api/v1/users/{user_key}", headers=_auth_header(token))
+    assert delete_res.status_code == 200, delete_res.get_json()
+
+
+def test_canonical_conversations_routes(client):
+    """Canonical conversations endpoints should create/retrieve chat history resource."""
+    r_signup = _signup(client, email="chatcanon@example.com")
+    user_key = r_signup.get_json()["user"]["user_key"]
+    token = _login(client, email="chatcanon@example.com").get_json()["token"]
+
+    create_chat = client.post("/api/v1/chats", headers=_auth_header(token))
+    assert create_chat.status_code == 201, create_chat.get_json()
+    chat_key = create_chat.get_json()["chat"]["chat_key"]
+
+    list_chats = client.get(f"/api/v1/users/{user_key}/chats", headers=_auth_header(token))
+    assert list_chats.status_code == 200, list_chats.get_json()
+
+    get_history = client.get(
+        f"/api/v1/chats/{chat_key}/conversations",
+        headers=_auth_header(token),
+    )
+    assert get_history.status_code == 200, get_history.get_json()
+    body = get_history.get_json()
+    assert "conversations" in body
+    assert "messages" in body
+
+    post_empty_message = client.post(
+        f"/api/v1/chats/{chat_key}/conversations",
+        json={"message": "   "},
+        headers=_auth_header(token),
+    )
+    assert post_empty_message.status_code == 400, post_empty_message.get_json()

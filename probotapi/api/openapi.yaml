@@ -164,7 +164,7 @@ info:
   version: v1
 openapi: 3.0.3
 paths:
-  /api/v1/chats/:
+  /api/v1/chats:
     post:
       responses:
         default:
@@ -172,7 +172,7 @@ paths:
       summary: Create a new chat thread for a user.
       tags:
       - llm
-  /api/v1/chats/{chat_key}/:
+  /api/v1/chats/{chat_key}:
     delete:
       responses:
         default:
@@ -187,12 +187,12 @@ paths:
       schema:
         minLength: 1
         type: string
-  /api/v1/chats/{chat_key}/messages/:
+  /api/v1/chats/{chat_key}/conversations:
     get:
       responses:
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
-      summary: Get all messages in a chat thread.
+      summary: Get all conversations in a chat thread.
       tags:
       - llm
     parameters:
@@ -206,10 +206,10 @@ paths:
       responses:
         default:
           $ref: '#/components/responses/DEFAULT_ERROR'
-      summary: Send a new message to an existing chat.
+      summary: Create a new conversation entry in an existing chat.
       tags:
       - llm
-  /api/v1/login/:
+  /api/v1/auth/login:
     post:
       requestBody:
         content:
@@ -249,7 +249,7 @@ paths:
       summary: Authenticate user and return JWT.
       tags:
       - api
-  /api/v1/signup/:
+  /api/v1/auth/signup:
     post:
       requestBody:
         content:
@@ -283,7 +283,7 @@ paths:
       summary: Register a new user account.
       tags:
       - api
-  /api/v1/users/{user_key}/:
+  /api/v1/users/{user_key}:
     delete:
       responses:
         '200':
@@ -388,7 +388,7 @@ paths:
       summary: Update user profile information.
       tags:
       - api
-  /api/v1/users/{user_key}/chats/:
+  /api/v1/users/{user_key}/chats:
     get:
       responses:
         default:

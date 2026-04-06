@@ -3,12 +3,12 @@ import sys
 
 import pytest
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if WORKSPACE_ROOT not in sys.path:
+    sys.path.insert(0, WORKSPACE_ROOT)
 
-from app import create_app
-from models import db, UserRole
+from probotapi.app import create_app
+from probotapi.models import db, UserRole, Model
 
 @pytest.fixture()
 def app():
@@ -27,6 +27,7 @@ def app():
 
         db.session.add(UserRole(role_name="user", description="Default normal user"))
         db.session.add(UserRole(role_name="admin", description="Administrator"))
+        db.session.add(Model(model_key="gemini-3-flash-preview", is_active=True))
         db.session.commit()
 
     yield app

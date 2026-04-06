@@ -3,7 +3,15 @@ ProBot Application Factory.
 This module initializes the Flask app, configures the database, and registers blueprints.
 """
 import os
+import sys
 from flask import Flask
+
+# Support running `python app.py` from inside the `probotapi` directory.
+if __name__ == "__main__" and __package__ is None:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
 from probotapi.models import db
 from probotapi.initialise import insert_data
 from probotapi.routes.user_routes import api_bp as user_bp

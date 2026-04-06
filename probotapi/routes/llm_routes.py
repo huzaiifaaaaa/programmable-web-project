@@ -13,6 +13,12 @@ from probotapi.auth_utils import auth_required
 
 llm_bp = Blueprint("llm", __name__, description="LLM related APIs")
 
+CHAT_COLLECTION_PATH = "/chats"
+USER_CHAT_COLLECTION_PATH = "/users/<string:user_key>/chats"
+CHAT_CONVERSATIONS_PATH = "/chats/<string:chat_key>/conversations"
+CHAT_MESSAGES_LEGACY_PATH = "/chats/<string:chat_key>/messages"
+CHAT_ITEM_PATH = "/chats/<string:chat_key>"
+
 def get_json():
     """Extracts JSON from request and returns a dictionary or None."""
     data = request.get_json(silent=True)
@@ -71,8 +77,8 @@ def get_gemini_response(prompt: str, model_key: str) -> tuple[str | None, str | 
     except genai.errors.ClientError as e:  # Specific exception
         return None, f"API Client Error: {str(e)}"
 
-# POST /api/v1/chats/
-@llm_bp.route("/chats/", methods=["POST"])
+# POST /api/v1/chats
+@llm_bp.route(CHAT_COLLECTION_PATH, methods=["POST"], strict_slashes=False)
 @auth_required
 def create_chat(claims=None):
     """Create a new chat thread for a user."""
@@ -90,8 +96,8 @@ def create_chat(claims=None):
         db.session.rollback()
         return jsonify({"error": "failed to create chat"}), 500
 
-# GET /api/v1/users/<user_key>/chats/
-@llm_bp.route("/users/<string:user_key>/chats/", methods=["GET"])
+# GET /api/v1/users/<user_key>/chats
+@llm_bp.route(USER_CHAT_COLLECTION_PATH, methods=["GET"], strict_slashes=False)
 @auth_required
 def list_user_chats(user_key: str, claims=None):
     """List all chat threads for a user."""
@@ -108,8 +114,10 @@ def list_user_chats(user_key: str, claims=None):
         "count": len(chats)
     }), 200
 
-# POST /api/v1/chats/<chat_key>/messages/
-@llm_bp.route("/chats/<string:chat_key>/messages/", methods=["POST"])
+# POST /api/v1/chats/<chat_key>/conversations (canonical)
+@llm_bp.route(CHAT_CONVERSATIONS_PATH, methods=["POST"], strict_slashes=False)
+# POST /api/v1/chats/<chat_key>/messages (legacy alias)
+@llm_bp.route(CHAT_MESSAGES_LEGACY_PATH, methods=["POST"], strict_slashes=False)
 @auth_required
 def send_message(chat_key: str, claims=None):
     """Send a new message to an existing chat."""
@@ -153,8 +161,10 @@ def send_message(chat_key: str, claims=None):
         db.session.rollback()
         return jsonify({"error": "failed to save conversation"}), 500
 
-# GET /api/v1/chats/<chat_key>/messages/
-@llm_bp.route("/chats/<string:chat_key>/messages/", methods=["GET"])
+# GET /api/v1/chats/<chat_key>/conversations (canonical)
+@llm_bp.route(CHAT_CONVERSATIONS_PATH, methods=["GET"], strict_slashes=False)
+# GET /api/v1/chats/<chat_key>/messages (legacy alias)
+@llm_bp.route(CHAT_MESSAGES_LEGACY_PATH, methods=["GET"], strict_slashes=False)
 @auth_required
 def get_message_history(chat_key: str, claims=None):
     """Get all messages in a chat thread."""
@@ -170,13 +180,15 @@ def get_message_history(chat_key: str, claims=None):
         .order_by(Conversation.created_at.asc())
         .all()
     )
+    conversations = [conversation_to_dict(c) for c in convs]
     return jsonify({
         "chat": chat_to_dict(chat),
-        "messages": [conversation_to_dict(c) for c in convs]
+        "conversations": conversations,
+        "messages": conversations,
     }), 200
 
-# DELETE /api/v1/chats/<chat_key>/
-@llm_bp.route("/chats/<string:chat_key>/", methods=["DELETE"])
+# DELETE /api/v1/chats/<chat_key>
+@llm_bp.route(CHAT_ITEM_PATH, methods=["DELETE"], strict_slashes=False)
 @auth_required
 def delete_chat(chat_key: str, claims=None):
     """Delete a specific chat and all its messages."""

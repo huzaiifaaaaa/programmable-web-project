@@ -20,6 +20,10 @@ api_bp = Blueprint(
 )
 
 DEFAULT_ROLE_NAME = "user"
+AUTH_SIGNUP_PATH = "/auth/signup"
+AUTH_LOGIN_PATH = "/auth/login"
+LEGACY_SIGNUP_PATH = "/signup"
+LEGACY_LOGIN_PATH = "/login"
 
 class SignupRequestSchema(Schema):
     class Meta:
@@ -83,7 +87,7 @@ class UpdateUserRequestSchema(Schema):
 
 def user_to_dict(u: User):
     """Serializes user model to dictionary with HATEOAS links."""
-    user_uri = f"/api/v1/users/{u.user_key}/"
+    user_uri = f"/api/v1/users/{u.user_key}"
     return {
         "user_id": u.user_id,
         "user_key": u.user_key,
@@ -95,7 +99,7 @@ def user_to_dict(u: User):
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "links": [
             {"rel": "self", "href": user_uri},
-            {"rel": "chats", "href": f"{user_uri}chats/"}
+            {"rel": "chats", "href": f"{user_uri}/chats"}
         ]
     }
 
@@ -131,8 +135,10 @@ def get_user_payload(user_key: str):
     cache.set(cache_key, payload, timeout=60)
     return payload
 
-# POST /api/v1/signup/
-@api_bp.route("/signup/", methods=["POST"])
+# POST /api/v1/auth/signup (canonical)
+@api_bp.route(AUTH_SIGNUP_PATH, methods=["POST"], strict_slashes=False)
+# POST /api/v1/signup (legacy alias)
+@api_bp.route(LEGACY_SIGNUP_PATH, methods=["POST"], strict_slashes=False)
 @api_bp.arguments(SignupRequestSchema)
 @api_bp.response(201, SignupSuccessSchema)
 @api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
@@ -168,8 +174,10 @@ def signup(data):
 
     return jsonify({"status": "created", "user": user_to_dict(u)}), 201
 
-# POST /api/v1/login/
-@api_bp.route("/login/", methods=["POST"])
+# POST /api/v1/auth/login (canonical)
+@api_bp.route(AUTH_LOGIN_PATH, methods=["POST"], strict_slashes=False)
+# POST /api/v1/login (legacy alias)
+@api_bp.route(LEGACY_LOGIN_PATH, methods=["POST"], strict_slashes=False)
 @api_bp.arguments(LoginRequestSchema)
 @api_bp.response(200, LoginSuccessSchema)
 @api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
@@ -196,8 +204,8 @@ def login(data):
     })
     return jsonify({"token": token, "user": user_to_dict(u)}), 200
 
-# GET /api/v1/users/<user_key>/
-@api_bp.route("/users/<string:user_key>/", methods=["GET"])
+# GET /api/v1/users/<user_key>
+@api_bp.route("/users/<string:user_key>", methods=["GET"], strict_slashes=False)
 @api_bp.response(200, UserOutSchema)
 @api_bp.alt_response(304, description="Not Modified")
 @api_bp.alt_response(403, schema=SimpleErrorSchema, description="Forbidden")
@@ -226,8 +234,8 @@ def get_user(user_key, claims=None):
     resp.headers["Cache-Control"] = "private, max-age=60"
     return resp
 
-# PUT /api/v1/users/<user_key>/
-@api_bp.route("/users/<string:user_key>/", methods=["PUT"])
+# PUT /api/v1/users/<user_key>
+@api_bp.route("/users/<string:user_key>", methods=["PUT"], strict_slashes=False)
 @api_bp.arguments(UpdateUserRequestSchema)
 @api_bp.response(200, UpdateUserSuccessSchema)
 @api_bp.alt_response(400, schema=SimpleErrorSchema, description="Bad request")
@@ -273,8 +281,8 @@ def update_user(data, user_key, claims=None):
         db.session.rollback()
         return jsonify({"error": "email already exists"}), 409
 
-# DELETE /api/v1/users/<user_key>/
-@api_bp.route("/users/<string:user_key>/", methods=["DELETE"])
+# DELETE /api/v1/users/<user_key>
+@api_bp.route("/users/<string:user_key>", methods=["DELETE"], strict_slashes=False)
 @api_bp.response(200, StatusSchema)
 @api_bp.alt_response(403, schema=SimpleErrorSchema, description="Forbidden")
 @api_bp.alt_response(404, schema=SimpleErrorSchema, description="User not found")
