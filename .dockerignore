@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.pyc
+__pycache__
+*.egg-info
+.DS_Store
+probotapi/instance/
+*.db
+.pytest_cache
+tests/
+meetings.md
+programmable-web-project.wiki/
