@@ -53,29 +53,21 @@
 *Add here notes that you consider important. This is not mandatory*
 
 
-## Meeting 4.
-* **DATE:**
+## Meeting 4/Midterm Meeting.
+* **DATE:** April 14th
 * **PARTICIPANTS:**
+  - Muhammad Huzaifa
+  - Zhenfei Sun
+  - Syed Safiullah Shah
 * **TEACHER:**
+  - Mika Oja
 
 ### Action points
-*List here the actions points discussed with assistants*
+1. In response: Let client know where the resource is created. 201 , no response -> return in headers.
+2. ⁠Use 503 instead of 500 for service unavailability.
+3. Move client arrow to nginx in diagram. 
 
 ### Notes
-*Add here notes that you consider important. This is not mandatory*
-
-
-## Midterm meeting
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
-
-### Action points
-*List here the actions points discussed with assistants*
-
-### Notes
-*Add here notes that you consider important. This is not mandatory*
-
 
 ## Final meeting
 * **DATE:**
