@@ -4,7 +4,7 @@ This module initializes the Flask app, configures the database, and registers bl
 """
 import os
 import sys
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 
 # Support running `python app.py` from inside the `probotapi` directory.
@@ -56,16 +56,22 @@ def create_app():
 
     CORS(
         flask_app,
-        resources={
-            r"/api/.*": {
-                "origins": ["https://pwp.cloverta.top"],
-                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                "allow_headers": ["Content-Type", "Authorization", "If-None-Match"],
-                "expose_headers": ["ETag"],
-            }
-        },
+        origins=["https://pwp.cloverta.top"],
         supports_credentials=True,
     )
+
+    @flask_app.after_request
+    def add_cors_headers(response):
+        origin = request.headers.get("Origin")
+
+        if origin == "https://pwp.cloverta.top":
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, If-None-Match"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            response.headers["Access-Control-Expose-Headers"] = "ETag"
+
+        return response
 
     api = Api(flask_app)
 
