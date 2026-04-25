@@ -17,7 +17,7 @@ dependencies = [
     "Flask-Caching",
     "flask-smorest",
     "google-genai",
-    "jwt"
+    "pyjwt"
 ]
 
 requires-python = ">=3.9"
