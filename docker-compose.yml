@@ -14,7 +14,7 @@ services:
       # Named volume mounted at /app so the SQLite DB (created at
       # /app/pro_bot_prod.db by the app) survives container restarts.
       # Docker initialises the volume from the image contents on first run.
-      - app_data:/app
+      - app_data:/data
       - app_logs:/var/log
     expose:
       - "8000"

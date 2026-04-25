@@ -30,7 +30,7 @@ def create_app():
     env = os.getenv('APP_ENV', 'stage').lower()
     db_name = f"pro_bot_{env}.db"
 
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_name}"
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:////data/{db_name}"
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "CHANGE_ME_TO_RANDOM_LONG_SECRET")
     flask_app.config["JWT_EXPIRE_SECONDS"] = int(os.getenv("JWT_EXPIRE_SECONDS", "3600"))
