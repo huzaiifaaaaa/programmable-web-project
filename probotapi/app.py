@@ -5,6 +5,7 @@ This module initializes the Flask app, configures the database, and registers bl
 import os
 import sys
 from flask import Flask
+from flask_cors import CORS
 
 # Support running `python app.py` from inside the `probotapi` directory.
 if __name__ == "__main__" and __package__ is None:
@@ -52,6 +53,14 @@ def create_app():
     flask_app.debug = env == 'stage'
     db.init_app(flask_app)
     cache.init_app(flask_app)
+
+    CORS(flask_app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:3000"],
+            "methods": ["GET", "POST", "DELETE", "PUT", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
 
     api = Api(flask_app)
 
