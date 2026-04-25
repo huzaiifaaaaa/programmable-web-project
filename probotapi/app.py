@@ -54,13 +54,18 @@ def create_app():
     db.init_app(flask_app)
     cache.init_app(flask_app)
 
-    CORS(flask_app, resources={
-        r"/api/*": {
-            "origins": "*",
-            "methods": ["GET", "POST", "DELETE", "PUT", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
-        }
-    })
+    CORS(
+        flask_app,
+        resources={
+            r"/api/.*": {
+                "origins": ["https://pwp.cloverta.top"],
+                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization", "If-None-Match"],
+                "expose_headers": ["ETag"],
+            }
+        },
+        supports_credentials=True,
+    )
 
     api = Api(flask_app)
 
