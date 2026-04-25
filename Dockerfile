@@ -8,6 +8,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         supervisor \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -20,7 +21,7 @@ RUN pip install --no-cache-dir -e .
 
 RUN mkdir -p /var/log/supervisor /var/log/gunicorn
 
-COPY supervisor/supervisord.conf /etc/supervisor/conf.d/probotapi.conf
+COPY deployment/supervisor/probotapi.conf /etc/supervisor/conf.d/probotapi.conf
 
 EXPOSE 8000
 
