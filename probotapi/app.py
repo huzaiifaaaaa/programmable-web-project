@@ -56,7 +56,7 @@ def create_app():
 
     CORS(flask_app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],
+            "origins": "*",
             "methods": ["GET", "POST", "DELETE", "PUT", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }
